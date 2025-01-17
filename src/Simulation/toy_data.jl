@@ -67,7 +67,7 @@ function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}
     X = Matrix{Float64}(undef, n, T)
     ts = 1:T
     for (i, series) in enumerate(eachrow(X))
-        @. series = sin(2pi/period_vals[i] * ts + phase_vals[i]) + (slope_vals[i] * ts) / T + sigma * randn()
+        @. series = sin(2pi/period_vals[i] * ts + phase_vals[i]) + (slope_vals[i] * ts) / T + sigma * randn(rng)
     end
 
     info = nothing
