@@ -27,8 +27,8 @@ ntrain_instances = 300
 ntest_instances = 200
 
 # generate the train and test datasets
-X_train = trendy_sine(ntimepoints, ntrain_instances, 0.1, rng);
-X_test = trendy_sine(ntimepoints, ntest_instances , 0.1, rng);
+X_train, _ = trendy_sine(ntimepoints, ntrain_instances; sigma=0.1, rng=rng);
+X_test, _ = trendy_sine(ntimepoints, ntest_instances; sigma=0.1, rng=rng);
 
 # hyper parameters and training
 opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false);
