@@ -148,7 +148,23 @@ function single_site_spectrum(mps::TrainedMPS)
     return sees
 end
 
-# SEE variation function, lets you plug in either test set (single or multiple), or a custom value
+"""
+```Julia
+see_variation(mps::TrainedMPS, measure_series::Matrix, class::Int=0) -> Array{Float64, 3}
+```
+Compute the variation in single-site entanglement entropy for each site N in the MPS, 
+having measured sites 1 to N-1.
+
+# Arguments
+- `mps::TrainedMPS`: A trained Matrix Product State (MPS).
+- `measure_series::Matrix`: A matrix of time-series instances to measure (unscaled).
+- `class::Int`: Class MPS to compute SEE variation if there are multiple classes (MPSs).
+
+# Returns
+An array of dimension 3, where the first dimension is the time series instance, the second dimension is the probe site (site at which to measure SEE)
+and the third dimenion is the number of previous sites measured.  
+
+"""
 function see_variation(mps::TrainedMPS, measure_series::Matrix, class::Int=0)
     imp = init_imputation_problem(mps, measure_series, verbosity=0);
     mpsi = imp.mpss[class+1]

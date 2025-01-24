@@ -100,6 +100,29 @@ p = plot(b1, b2)
 ```
 ![](./figures/tools/ipd_see.svg)
 
+### Single-Site Entanglement Entropy Variation
+Another quantity we can compute is the single-site entanglement entropy (SEE) variation.
+In effect, the SEE variation captures the change in SEE at any given MPS site, conditional upon having measured the preceding sites.
+Given a trained MPS, the SEE variation can be computed:
+```Julia
+# see_variation expects a data matrix, so we need to index as follows to feed in a single instance
+see_variation = see_variation(mps, X_test[1:1, :])
+# if there is more than one class (e.g., classification)
+see_variation_c0 = see_variation(mps, X_test[1:1, :], 0)
+see_variation_c1 = see_variation(mps, X_test[1:1, :], 1)
+```
+It can be useful to visualize the SEE variation as a barplot. 
+Here we will plot the SEE of the unmeasured MPS, after measuring 5 sites (i.e., 5 time pts.), 20 sites, and 50 sites: 
+```Julia
+cpal = palette(:tab10)
+see_variation = see_variation(mps, X_test[1:1, :])
+b = bar(see_variation[1, 1, :], c=cpal[1], label="Unmeasured", xlabel="site", ylabel="SEE")
+bar!(see_variation[1, 6, :], c=cpal[2], label="5 Sites Measured")
+bar!(see_variation[1, 21, :], c=cpal[3], label="20 Sites Measured")
+bar!(see_variation[1, 51, :], c=cpal[4], label="50 Sites Measured")
+```
+![](./figures/tools/see_variation_ecg.svg)
+
 ## Missing Data Simulation
 In the time-series imputation literature, time-series data can be categorised into one of three types based on the underlying process responsible for the missing data: (i) missing completely at random (MCAR); (ii) missing at random (MAR); or, (iii) missing not at random (MNAR).
 A review of the various mechanisms in the univariate setting can be found in [Santos2019GeneratingSM](@cite).
@@ -168,8 +191,9 @@ Plotting corrupted time-series from the `LowestMNAR` mechanism:
 
 ## Docstrings
 ```@docs
-MPSTime.single_site_spectrum
 MPSTime.bipartite_spectrum
+MPSTime.single_site_spectrum
+MPSTime.see_variation
 MPSTime.mcar
 MPSTime.mar
 MPSTime.mnar
