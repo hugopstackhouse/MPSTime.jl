@@ -7,7 +7,7 @@ end
 
 
 function ==(p1::PState, p2::PState) 
-    return p1.label == p2.label && p1.label_index == p2.label_index && ==(p1.pstate.data, p2.pstate.data)
+    return p1.label == p2.label && p1.label_index == p2.label_index && ==(p1.pstate, p2.pstate)
 end
 
 function ==(m1::TrainedMPS, m2::TrainedMPS)
@@ -27,7 +27,7 @@ function isapprox(it1::TimeSeriesIterable, it2::TimeSeriesIterable)
 end
 
 function isapprox(p1::PState, p2::PState) 
-    return p1.label == p2.label && p1.label_index == p2.label_index && isapprox(p1.pstate.data, p2.pstate.data)
+    return p1.label == p2.label && p1.label_index == p2.label_index && isapprox(p1.pstate, p2.pstate)
 end
 
 function isapprox(m1::TrainedMPS, m2::TrainedMPS)

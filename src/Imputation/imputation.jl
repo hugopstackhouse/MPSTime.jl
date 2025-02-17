@@ -268,7 +268,7 @@ function get_predictions(
 
     mps = imp.mpss[imp.class_map[class]]
     cl_inds = (1:length(imp.y_test))[imp.y_test .== class] # For backwards compatibility reasons
-    target_ts_raw = imp.X_test[cl_inds[instance], :]
+    target_ts_raw = X_test[cl_inds[instance], :]
     target_timeseries= deepcopy(target_ts_raw)
 
     # transform the data
@@ -277,7 +277,7 @@ function get_predictions(
     X_train_scaled, norms = transform_train_data(X_train; opts=imp.opts)
     target_timeseries_full, oob_rescales_full = transform_test_data(target_ts_raw, norms; opts=imp.opts)
 
-    target_timeseries[missing_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
+    target_timeseries[missing_sites] .= mean(X_train[:]) # make it impossible for the unknown region to be used, even accidentally
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
 
     sites = siteinds(mps)

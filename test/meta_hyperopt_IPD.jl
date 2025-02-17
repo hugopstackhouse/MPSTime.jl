@@ -22,7 +22,8 @@ e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 
-addprocs(15; env=e, exeflags="--heap-size-hint=6G", enable_threaded_blas=false)
+addprocs(4; env=e, exeflags="--heap-size-hint=6G", enable_threaded_blas=false)
+
 @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
 
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
@@ -36,16 +37,16 @@ res = evaluate(
     vcat(X_train, X_test), 
     vcat(y_train, y_test), 
     params,
-    BBO_adaptive_de_rand_1_bin(); 
+    BBO_random_search(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
-    nfolds=30, 
+    nfolds=4, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     tuning_windows = nothing,
-    tuning_pms=collect(5:10:95) ./100,
-    tuning_abstol=1e-3, 
-    tuning_maxiters=100,
+    tuning_pms=collect(5:20:95) ./100,
+    tuning_abstol=1e-8, 
+    tuning_maxiters=1,
     verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
