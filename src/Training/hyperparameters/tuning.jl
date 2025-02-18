@@ -1,14 +1,7 @@
-
-abstract type TuningLoss end
-struct ClassificationLoss <: TuningLoss end
-struct ImputationLoss <: TuningLoss end 
-
-
-
-
 function make_objective(
     folds::AbstractVector,
     objective::TuningLoss, 
+    distribute_folds::Bool,
     opts0::AbstractMPSOptions, 
     fields::Vector{Symbol}, 
     types::Vector{Type},
@@ -54,19 +47,33 @@ function make_objective(
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
             opts = _set_options(opts0; hparams...)
             
-            
-            losses = Vector{Float64}(undef, nfolds)
-            for (fold, (train_inds, val_inds)) in enumerate(folds)
-                X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-                # X_val, y_val = X_val[1:2, :], y_val[1:2]
+            if distribute_folds
+                loss = @distributed (+) for fold in eachindex(folds)
+                    (train_inds, val_inds) = folds[fold]
+                    X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
+                    # X_val, y_val = X_val[1:2, :], y_val[1:2]
 
-                verbosity >= 1 && println("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
-                mps, _... = fitMPS(X_train, y_train, opts);
-                # println(" done")
+                    verbosity >= 1 && println("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
+                    mps, _... = fitMPS(X_train, y_train, opts);
+                    # println(" done")
 
-                losses[fold] = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
+                    mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
+                end
+            else
+                loss = 0
+                for (fold, (train_inds, val_inds)) in enumerate(folds)
+                    X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
+                    # X_val, y_val = X_val[1:2, :], y_val[1:2]
+
+                    verbosity >= 1 && println("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
+                    mps, _... = fitMPS(X_train, y_train, opts);
+                    # println(" done")
+
+                    loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
+                end
             end
-            loss = mean(losses)
+            loss /= nfolds
+            
             
             cache[key] = loss
             verbosity >= 1 && println("t=$(rtime(tstart)): Mean CV Loss: $loss")
@@ -86,9 +93,9 @@ function tune_across_folds(
     tstart::Real
     )
     x0, opts0, lb, ub, is_disc, fields, types = parameter_info
-    objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
+    objective, method, distribute_folds, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
 
-    tr_objective, cache, safe_params = make_objective(folds, objective, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
+    tr_objective, cache, safe_params = make_objective(folds, objective, distribute_folds, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
     p = (verbosity, tstart, nfolds)
 
     # for rapid debugging
@@ -157,18 +164,19 @@ function tune(
         logspace_eta::Bool=false,
         abstol::Float64=1e-3,
         maxiters::Integer=500,
-        # distribute_folds::Bool=false,
+        distribute_folds::Bool=false,
         disable_nondistributed_threading::Bool=false,
 
     )
     # basic checks    
+    abs_rng = rng isa Integer ? Xoshiro(rng) : rng
+
     if !(length(unique(keys(parameters))) == length(keys(parameters)))
        throw(ArgumentError("The 'parameters' argument contains duplicates!")) 
     end
     if objective isa ImputationLoss
-        windows = make_windows(windows, pms, X)
+        windows = make_windows(windows, pms, X, abs_rng)
     end
-    abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
     
     is_disc = Vector{Bool}(undef, length(parameters))
@@ -214,7 +222,7 @@ function tune(
 
 
     parameter_info = x0, opts0, lb, ub, is_disc, fields, types
-    tuning_settings = objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta
+    tuning_settings = objective, method, distribute_folds, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
     if nfolds <= 1
         folds = []
@@ -238,49 +246,6 @@ function tune(
 end
 
 #eval_loss returns an array of loss scores. This is either a singleton or imputation loss scores indexed by percentage missing
-
-function eval_loss(::ClassificationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing)
-    return [1. - mean(classify(mps, X_val) .== y_val)] # misclassification rate, vector for type stability
-end
-
-function eval_loss(::ImputationLoss, 
-    mps::TrainedMPS, 
-    X_val::AbstractMatrix, 
-    y_val::AbstractVector, 
-    windows::Union{Nothing, AbstractVector}=nothing;
-    p_fold::Union{Nothing, Tuple}=nothing
-    )
-    
-    if ~isnothing(p_fold)
-        verbosity, tstart, fold, nfolds = p_fold
-        logging = verbosity >= 2
-        foldstr = isnothing(fold) ? "" : "cvfold $fold:"
-    else
-        logging = false
-    end
-    imp = init_imputation_problem(mps, X_val, y_val, verbosity=-5);
-    numval = size(X_val, 1)
-    instance_scores = Matrix{Float64}(undef, numval, length(windows)) # score for each instance across all % missing
-    # conversion from inst to something MPS_impute understands. #TODO This is awful, should fix
-
-    cmap = countmap(y_val)
-    classes= vcat([fill(k,v) for (k,v) in pairs(cmap)]...)
-    class_ind = vcat([1:v for v in values(cmap)]...)
-
-    for inst in 1:numval
-        logging && print("$foldstr Evaluating instance $inst/$numval...")
-        t = time()
-        for (iw, impute_sites) in enumerate(windows)
-            # impute_sites = mar(X_val[inst, :], p)[2]
-            stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
-            instance_scores[inst, iw] = stats[1][:MAE]
-        end
-        logging && println("done ($(rtime(t))s)")
-    end
-
-    return mean(instance_scores; dims=1)[:] # return loss indexed by window
-end
-
 
 
 

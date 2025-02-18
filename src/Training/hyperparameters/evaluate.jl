@@ -20,7 +20,7 @@ function evaluate(
     provide_x0::Bool=true,
     logspace_eta::Bool=false,
     rng::Union{Integer, AbstractRNG}=1,
-    tuning_rng::Union{Integer, AbstractRNG}=1,
+    tuning_rng::AbstractVector{<:Union{Integer, AbstractRNG}}=collect(1:nfolds),
     foldmethod::Union{Function, Vector}=make_stratified_folds, 
     tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
     eval_pms::Union{Nothing, AbstractVector}=nothing,
@@ -30,12 +30,14 @@ function evaluate(
     tuning_abstol::Float64=1e-3,
     tuning_maxiters::Integer=500,
     distribute_folds::Bool=false,   
+    distribute_cvfolds::Bool=false
     )
-    if objective isa ImputationLoss
-        eval_windows = make_windows(eval_windows, eval_pms, X)
-        tuning_windows = make_windows(tuning_windows, tuning_pms, X)
-    end
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
+
+    if objective isa ImputationLoss
+        eval_windows = make_windows(eval_windows, eval_pms, X, abs_rng)
+        # tuning_windows = make_windows(tuning_windows, tuning_pms, X, abs_rng)
+    end
 
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
 
@@ -63,6 +65,8 @@ function evaluate(
         (train_inds, test_inds) = fold_inds
         X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
     
+        abs_rng = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
+        tuning_windows = make_windows(tuning_windows, tuning_pms, X, abs_rng)
         best_params = tune(
             X_train, 
             y_train, 
@@ -79,10 +83,11 @@ function evaluate(
             abstol=tuning_abstol, 
             maxiters=tuning_maxiters,
             verbosity=verbosity,
-            rng=tuning_rng,
-            foldmethod=tuning_foldmethod
+            rng=tuning_rng[fold],
+            foldmethod=tuning_foldmethod,
+            distribute_folds=distribute_cvfolds
         )
-        @show best_params
+        # @show best_params
         opts = _set_options(opts0; best_params...)
         verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with $(best_params)... ")
         mps, _... = fitMPS(X_train, y_train, opts);
@@ -94,13 +99,13 @@ function evaluate(
             "train_inds"=>train_inds, 
             "test_inds"=>test_inds, 
             "optimiser"=>string(tuning_optimiser),
-            "tuning_windows"=>tuning_windows,
+            "tuning_windows"=>tuning_windows, 
             "tuning_pms"=>tuning_pms,
             "eval_windows"=>eval_windows,
             "eval_pms"=>eval_pms,
             "time"=>time() - tbeg,
             "opts"=>opts, 
-            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold)
+            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold, distribute=distribute_folds)
         )
         return res
     end

@@ -1,3 +1,7 @@
+abstract type TuningLoss end
+struct ClassificationLoss <: TuningLoss end
+struct ImputationLoss <: TuningLoss end 
+
 
 function make_folds(X::AbstractMatrix, k::Int; rng::Union{Nothing, AbstractRNG}=nothing)
     if isnothing(rng)
@@ -24,17 +28,18 @@ function make_stratified_cvfolds(X::AbstractMatrix, y::AbstractVector, nfolds::I
     return MLJBase.train_test_pairs(stratified_cv, 1:size(X,1), y)
 end
 
-function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix)
+function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix, rng::AbstractRNG=Random.GLOBAL_RNG)
 
     if ~isnothing(windows) 
         if ~isnothing(pms)
-            @show pms
-            @show windows
             throw(ArgumentError("Cannot specifiy both windows and pms!"))
         end
 
         if windows isa Dict
             return vcat([windows[key] for key in sort(collect(keys(windows)))]...)
+
+        else
+            @assert all(isa.(windows, AbstractVector)) "Elements of windows must be window vectors!"
         end
         return windows
     elseif ~isnothing(pms) 
@@ -42,7 +47,7 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
         if eltype(pms) <: Integer
             pms ./ 100
         end
-        return [mar(collect(1.:ts_length), pm)[2] for pm in pms]
+        return [mar(collect(1.:ts_length), pm; rng=rng)[2] for pm in pms]
     else
         throw(ArgumentError("Must specify either windows or pms!"))
         return []
@@ -53,4 +58,68 @@ end
 function rtime(tstart::Float64)
 
     return round(time() - tstart; digits=2)
+end
+
+
+
+function eval_loss(::ClassificationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing, distribute::Bool=false)
+    return [1. - mean(classify(mps, X_val) .== y_val)] # misclassification rate, vector for type stability
+end
+
+function eval_loss(
+    ::ImputationLoss, 
+    mps::TrainedMPS, 
+    X_val::AbstractMatrix, 
+    y_val::AbstractVector, 
+    windows::Union{Nothing, AbstractVector}=nothing;
+    p_fold::Union{Nothing, Tuple}=nothing,
+    distribute::Bool=false
+    )
+    
+    if ~isnothing(p_fold)
+        verbosity, tstart, fold, nfolds = p_fold
+        logging = verbosity >= 2
+        foldstr = isnothing(fold) ? "" : "cvfold $fold:"
+    else
+        logging = false
+    end
+    imp = init_imputation_problem(mps, X_val, y_val, verbosity=-5);
+    numval = size(X_val, 1)
+    # conversion from inst to something MPS_impute understands. #TODO This is awful, should fix
+
+    cmap = countmap(y_val)
+    classes= vcat([fill(k,v) for (k,v) in pairs(cmap)]...)
+    class_ind = vcat([1:v for v in values(cmap)]...)
+
+    if distribute
+        loss_by_window = @sync @distributed (+) for inst in 1:numval
+            logging && print("$foldstr Evaluating instance $inst/$numval...")
+            t = time()
+            ws = Vector{Float64}(undef, length(windows))
+            for (iw, impute_sites) in enumerate(windows)
+                # impute_sites = mar(X_val[inst, :], p)[2]
+                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
+                ws[iw] = stats[1][:MAE]
+            end
+            logging && println("done ($(rtime(t))s)")
+            ws
+        end
+        loss_by_window /= numval
+    else
+        instance_scores = Matrix{Float64}(undef, numval, length(windows)) # score for each instance across all % missing
+        for inst in 1:numval
+            logging && print("$foldstr Evaluating instance $inst/$numval...")
+            t = time()
+            for (iw, impute_sites) in enumerate(windows)
+                # impute_sites = mar(X_val[inst, :], p)[2]
+                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
+                instance_scores[inst, iw] = stats[1][:MAE]
+            end
+            logging && println("done ($(rtime(t))s)")
+        end
+        loss_by_window = mean(instance_scores; dims=1)[:]
+    end
+    
+
+    return loss_by_window
 end

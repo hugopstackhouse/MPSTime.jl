@@ -1,3 +1,4 @@
+using Revise
 using MPSTime
 using JLD2
 using Distributed
@@ -14,17 +15,19 @@ Random.seed!(1)
 
 params = (
     eta=(-3,1), 
-    d=(10,20), 
-    chi_max=(20,50),
+    d=(5,6),#10,20), 
+    chi_max=(10,12),#20,50),
     nsweeps=(2,8)
 ,) 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 
-addprocs(4; env=e, exeflags="--heap-size-hint=6G", enable_threaded_blas=false)
+if nprocs() == 1
+    addprocs(8; env=e, exeflags="--heap-size-hint=6G", enable_threaded_blas=false)
+end
 
-@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
+@everywhere using Revise, MPSTime, Distributed, Optimization, OptimizationBBO
 
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
@@ -42,19 +45,25 @@ res = evaluate(
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
     nfolds=4, 
     n_cvfolds=5,
-    eval_windows=windows_julia,
+    eval_windows=nothing,#windows_julia,
+    eval_pms=collect(5:20:95) ./100,
     tuning_windows = nothing,
-    tuning_pms=collect(5:20:95) ./100,
+    tuning_pms=[0.05,0.1], #collect(5:20:95) ./100,
     tuning_abstol=1e-8, 
-    tuning_maxiters=1,
+    tuning_maxiters=10,
     verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
-    distribute_folds=true)
+    distribute_folds=true,
+    distribute_cvfolds=true,
+)
 
-@save "IPD_gen_opt.jld2" res
+using StatsBase
+println(mean(mean(getindex.(res, "loss"))))
+# 0.22382542363624128
+# @save "IPD_gen_opt.jld2" res
 # 20 iter benchmarks 
 
 
