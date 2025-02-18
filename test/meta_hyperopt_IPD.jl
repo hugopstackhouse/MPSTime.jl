@@ -50,19 +50,21 @@ res = evaluate(
     tuning_windows = nothing,
     tuning_pms=[0.05,0.1], #collect(5:20:95) ./100,
     tuning_abstol=1e-8, 
-    tuning_maxiters=10,
-    verbosity=2,
+    tuning_maxiters=20,
+    verbosity=1,
     foldmethod=folds,
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
     distribute_folds=true,
-    distribute_cvfolds=true,
+    distribute_cvfolds=false,
 )
 
 using StatsBase
 println(mean(mean(getindex.(res, "loss"))))
+# 0.20072699080538697
 # 0.22382542363624128
+# 0.1972986806310512
 # @save "IPD_gen_opt.jld2" res
 # 20 iter benchmarks 
 

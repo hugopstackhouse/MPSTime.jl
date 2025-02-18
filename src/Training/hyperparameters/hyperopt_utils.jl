@@ -3,6 +3,19 @@ struct ClassificationLoss <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 
 
+function divide_procs(workers, nfolds)
+    nprocs = length(workers)
+    i = 1
+    j = 0
+    split = [Int[] for _ in 1:nfolds]
+    while i <= nprocs
+        push!(split[j % nfolds + 1], workers[i])
+        i += 1
+        j += 1
+    end
+    return split
+end
+
 function make_folds(X::AbstractMatrix, k::Int; rng::Union{Nothing, AbstractRNG}=nothing)
     if isnothing(rng)
         rng = Xoshiro()
@@ -77,7 +90,7 @@ function eval_loss(
     )
     
     if ~isnothing(p_fold)
-        verbosity, tstart, fold, nfolds = p_fold
+        verbosity, pre_string, tstart, fold, nfolds = p_fold
         logging = verbosity >= 2
         foldstr = isnothing(fold) ? "" : "cvfold $fold:"
     else
@@ -93,7 +106,7 @@ function eval_loss(
 
     if distribute
         loss_by_window = @sync @distributed (+) for inst in 1:numval
-            logging && print("$foldstr Evaluating instance $inst/$numval...")
+            logging && print(pre_string, "$foldstr Evaluating instance $inst/$numval...")
             t = time()
             ws = Vector{Float64}(undef, length(windows))
             for (iw, impute_sites) in enumerate(windows)
@@ -108,7 +121,7 @@ function eval_loss(
     else
         instance_scores = Matrix{Float64}(undef, numval, length(windows)) # score for each instance across all % missing
         for inst in 1:numval
-            logging && print("$foldstr Evaluating instance $inst/$numval...")
+            logging && print(pre_string, "$foldstr Evaluating instance $inst/$numval...")
             t = time()
             for (iw, impute_sites) in enumerate(windows)
                 # impute_sites = mar(X_val[inst, :], p)[2]

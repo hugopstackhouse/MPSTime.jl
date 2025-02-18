@@ -40,25 +40,8 @@ function evaluate(
     end
 
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
-
-    if distribute_folds
-        mapfunc = pmap
-        if nprocs() == 1
-            println("No workers")
-        end
-        threading = pmap(i -> is_omp_threading(), 1:nworkers())
-
-        if ~all(threading)
-            @warn "Using both threading and multiprocessing at the same time is not advised, set OMP_NUM_THREADS=1 when adding a new process to disable this messaage"
-        end
-
-    else
-        mapfunc = map
-
-    end
-
     tstart = time()
-    function _eval_fold(fold, fold_inds)
+    function _eval_fold(fold, fold_inds, cv_workers=Int[])
         Random.seed!(fold)
         println("Beginning fold $fold:")
         tbeg = time()
@@ -85,14 +68,16 @@ function evaluate(
             verbosity=verbosity,
             rng=tuning_rng[fold],
             foldmethod=tuning_foldmethod,
-            distribute_folds=distribute_cvfolds
+            distribute_folds=distribute_cvfolds,
+            workers=cv_workers,
+            pre_string="Fold $fold: "
         )
         # @show best_params
         opts = _set_options(opts0; best_params...)
         verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with $(best_params)... ")
         mps, _... = fitMPS(X_train, y_train, opts);
         println(" done")
-        p_fold = verbosity, tstart, nothing, nfolds
+        p_fold = verbosity, "Fold $fold: ", tstart, nothing, nfolds
         res = Dict(
             "fold"=>fold,
             "objective"=>string(objective),
@@ -109,6 +94,29 @@ function evaluate(
         )
         return res
     end
-    
-    return mapfunc(_eval_fold, 1:nfolds, folds)
+
+    if distribute_folds
+        if nprocs() == 1
+            println("No workers")
+        end
+        threading = pmap(i -> is_omp_threading(), 1:nworkers())
+
+        if ~all(threading)
+            @warn "Using both threading and multiprocessing at the same time is not advised, set OMP_NUM_THREADS=1 when adding a new process to disable this messaage"
+        end
+
+        if ~distribute_cvfolds || nworkers() <= nfolds
+            return pmap(_eval_fold, 1:nfolds, folds)
+
+        else
+            pools = divide_procs(workers(), nfolds)
+            # @show pools
+            pmap(_eval_fold, 1:nfolds, folds, pools)
+        end
+
+    else
+        return map(_eval_fold, 1:nfolds, folds)
+
+    end
+
 end

@@ -1,6 +1,7 @@
 function make_objective(
     folds::AbstractVector,
     objective::TuningLoss, 
+    workers::AbstractVector,
     distribute_folds::Bool,
     opts0::AbstractMPSOptions, 
     fields::Vector{Symbol}, 
@@ -13,6 +14,7 @@ function make_objective(
 
     fieldnames = Tuple(fields)
     cache = Dict{Tuple{types...}, Float64}()
+    pool = distribute_folds ? CachingPool(workers) : []
 
     function safe_paramlist(optslist::AbstractVector; output=false)
         optslist_safe = Vector{Union{AbstractFloat, Integer}}(undef, length(optslist))
@@ -34,49 +36,51 @@ function make_objective(
         return optslist_safe
     end
 
+    function cvloss(fold, hparams, opts, p)
+        verbosity, pre_string, tstart, nfolds = p
+        (train_inds, val_inds) = folds[fold]
+        X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
+        ti = time()
+        mps, _... = fitMPS(X_train, y_train, opts);
+        verbosity >= 1 && println(pre_string, "cvfold $fold: training MPS with $(hparams)... (done in $(rtime(ti))s)")
+
+        return mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+    end
+
     function tr_objective(optslist::AbstractVector, p)
-        verbosity, tstart, nfolds = p
+        verbosity, pre_string, tstart, nfolds = p
 
         optslist_safe = safe_paramlist(optslist; output=verbosity>=3)
         
         key = tuple(optslist_safe...)
         if haskey(cache, key )
-            verbosity >= 1 && println("Cache hit!")
+            verbosity >= 1 && println(pre_string, "Cache hit!")
             loss = cache[key]
         else
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
             opts = _set_options(opts0; hparams...)
             
             if distribute_folds
-                loss = @distributed (+) for fold in eachindex(folds)
-                    (train_inds, val_inds) = folds[fold]
-                    X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-                    # X_val, y_val = X_val[1:2, :], y_val[1:2]
-
-                    verbosity >= 1 && println("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
-                    mps, _... = fitMPS(X_train, y_train, opts);
-                    # println(" done")
-
-                    mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
-                end
+                losses = pmap(fold->cvloss(fold, hparams, opts, p), pool, 1:nfolds)
+                loss = mean(losses)
             else
                 loss = 0
                 for (fold, (train_inds, val_inds)) in enumerate(folds)
                     X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-                    # X_val, y_val = X_val[1:2, :], y_val[1:2]
 
-                    verbosity >= 1 && println("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
+                    ti=time()
                     mps, _... = fitMPS(X_train, y_train, opts);
-                    # println(" done")
+                    verbosity >= 1 && println(pre_string, "cvfold $fold: training MPS with $(hparams)... (done in $(rtime(ti))s)")
 
-                    loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
+
+                    loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
                 end
+                loss /= nfolds
             end
-            loss /= nfolds
             
             
             cache[key] = loss
-            verbosity >= 1 && println("t=$(rtime(tstart)): Mean CV Loss: $loss")
+            verbosity >= 1 && println(pre_string, "t=$(rtime(tstart)): Mean CV Loss: $loss")
         end
         return loss
     end
@@ -93,10 +97,10 @@ function tune_across_folds(
     tstart::Real
     )
     x0, opts0, lb, ub, is_disc, fields, types = parameter_info
-    objective, method, distribute_folds, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
+    objective, method, workers, distribute_folds, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
 
-    tr_objective, cache, safe_params = make_objective(folds, objective, distribute_folds, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
-    p = (verbosity, tstart, nfolds)
+    tr_objective, cache, safe_params = make_objective(folds, objective, workers, distribute_folds, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
+    p = (verbosity, pre_string, tstart, nfolds)
 
     # for rapid debugging
     # tr_objective = (x,u...) -> begin @show x; return sum(x.^2) end
@@ -165,7 +169,9 @@ function tune(
         abstol::Float64=1e-3,
         maxiters::Integer=500,
         distribute_folds::Bool=false,
+        workers::AbstractVector{Int}=distribute_folds ? workers() : Int[],
         disable_nondistributed_threading::Bool=false,
+        pre_string::String=""
 
     )
     # basic checks    
@@ -222,7 +228,7 @@ function tune(
 
 
     parameter_info = x0, opts0, lb, ub, is_disc, fields, types
-    tuning_settings = objective, method, distribute_folds, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta
+    tuning_settings = objective, method, workers, distribute_folds, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
     if nfolds <= 1
         folds = []
