@@ -15,16 +15,17 @@ Random.seed!(1)
 
 params = (
     eta=(-3,1), 
-    d=(5,6),#10,20), 
-    chi_max=(10,12),#20,50),
+    d=(10,20), 
+    chi_max=(20,50),
     nsweeps=(2,8)
 ,) 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
+e["JULIA_WORKER_TIMEOUT"] = "360"
 
 if nprocs() == 1
-    addprocs(8; env=e, exeflags="--heap-size-hint=6G", enable_threaded_blas=false)
+    addprocs(6; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
 end
 
 @everywhere using Revise, MPSTime, Distributed, Optimization, OptimizationBBO
@@ -43,14 +44,14 @@ res = evaluate(
     BBO_random_search(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
-    nfolds=4, 
+    nfolds=30, 
     n_cvfolds=5,
-    eval_windows=nothing,#windows_julia,
-    eval_pms=collect(5:20:95) ./100,
+    eval_windows=windows_julia,
+    eval_pms=nothing,#collect(5:20:95) ./100,
     tuning_windows = nothing,
-    tuning_pms=[0.05,0.1], #collect(5:20:95) ./100,
+    tuning_pms=collect(5:20:95) ./100,
     tuning_abstol=1e-8, 
-    tuning_maxiters=20,
+    tuning_maxiters=150,
     verbosity=1,
     foldmethod=folds,
     input_supertype=Float64,
@@ -65,7 +66,7 @@ println(mean(mean(getindex.(res, "loss"))))
 # 0.20072699080538697
 # 0.22382542363624128
 # 0.1972986806310512
-# @save "IPD_gen_opt.jld2" res
+@save "IPD_rand_150_dontcrash.jld2" res
 # 20 iter benchmarks 
 
 
