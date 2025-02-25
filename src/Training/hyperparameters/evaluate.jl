@@ -48,8 +48,8 @@ function evaluate(
         (train_inds, test_inds) = fold_inds
         X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
     
-        abs_rng = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
-        tuning_windows = make_windows(tuning_windows, tuning_pms, X, abs_rng)
+        abs_rng_inner = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
+        tuning_windows_inner = make_windows(tuning_windows, tuning_pms, X, abs_rng_inner)
         best_params = tune(
             X_train, 
             y_train, 
@@ -62,11 +62,11 @@ function evaluate(
             logspace_eta=logspace_eta,
             nfolds=n_cvfolds, 
             pms=nothing,
-            windows=tuning_windows,
+            windows=tuning_windows_inner,
             abstol=tuning_abstol, 
             maxiters=tuning_maxiters,
             verbosity=verbosity,
-            rng=tuning_rng[fold],
+            rng=abs_rng_inner,
             foldmethod=tuning_foldmethod,
             distribute_folds=distribute_cvfolds,
             workers=cv_workers,
