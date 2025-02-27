@@ -17,6 +17,7 @@ function evaluate(
     tuning_opts0::AbstractMPSOptions=opts0,
     nfolds::Integer=30,
     n_cvfolds::Integer=5,
+    fold_inds::Vector{<:Integer}=collect(1:nfolds),
     provide_x0::Bool=true,
     logspace_eta::Bool=false,
     rng::Union{Integer, AbstractRNG}=1,
@@ -30,7 +31,11 @@ function evaluate(
     tuning_abstol::Float64=1e-3,
     tuning_maxiters::Integer=500,
     distribute_folds::Bool=false,   
-    distribute_cvfolds::Bool=false
+    distribute_cvfolds::Bool=false,
+    write::Bool=false,
+    writedir::String="evals",
+    simname::String="",
+    collect_tmps::Bool=length(fold_inds)==nfolds # default to delete only if the entire eval is done at once
     )
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
@@ -40,12 +45,19 @@ function evaluate(
     end
 
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
+
+    if isempty(simname)
+        simname = string(objective) * "_" * string(tuning_optimiser) * "_f=" * string(nfolds) * "_cv=" * string(n_cvfolds) * "_iters=" * string(tuning_maxiters)
+    end
+    outfile = strip(writedir, '/') * "/" * strip(simname, '/') * ".jld2"
+    tmpdir = strip(writedir, '/') * "/" * strip(simname, '/') * "_tmp/"
+    mkpath(tmpdir)
     tstart = time()
-    function _eval_fold(fold, fold_inds, cv_workers=Int[])
+    function _eval_fold(fold, cv_workers=Int[])
         Random.seed!(fold)
         println("Beginning fold $fold:")
         tbeg = time()
-        (train_inds, test_inds) = fold_inds
+        (train_inds, test_inds) = folds[fold]
         X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
     
         abs_rng_inner = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
@@ -78,7 +90,7 @@ function evaluate(
         mps, _... = fitMPS(X_train, y_train, opts);
         println(" done")
         p_fold = verbosity, "Fold $fold: ", tstart, nothing, nfolds
-        res = Dict(
+        res_iter = Dict(
             "fold"=>fold,
             "objective"=>string(objective),
             "train_inds"=>train_inds, 
@@ -92,7 +104,11 @@ function evaluate(
             "opts"=>opts, 
             "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold, distribute=distribute_folds)
         )
-        return res
+        mps, X_train, X_test, y_train, y_test = nothing, nothing, nothing, nothing, nothing # attempt to force garbage collection - probably does nothing
+        if write
+            @save (tmpdir * "f" * string(fold) * ".jld2") res_iter
+        end
+        return res_iter
     end
 
     if distribute_folds
@@ -106,17 +122,21 @@ function evaluate(
         end
 
         if ~distribute_cvfolds || nworkers() <= nfolds
-            return pmap(_eval_fold, 1:nfolds, folds)
+            res = pmap(_eval_fold, fold_inds)
 
         else
             pools = divide_procs(workers(), nfolds)
             # @show pools
-            pmap(_eval_fold, 1:nfolds, folds, pools)
+            res = pmap(_eval_fold, fold_inds, pools)
         end
 
     else
-        return map(_eval_fold, 1:nfolds, folds)
+        res = map(_eval_fold, fold_inds)
 
     end
-
+    if write && collect_tmps
+        @save outfile res
+        rm(tmpdir; recursive=true)
+    end
+    return res
 end
