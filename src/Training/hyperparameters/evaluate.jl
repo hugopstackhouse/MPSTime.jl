@@ -36,7 +36,8 @@ function evaluate(
     write::Bool=false,
     writedir::String="evals",
     simname::String="",
-    collect_tmps::Bool=length(fold_inds)==nfolds # default to delete only if the entire eval is done at once
+    collect_tmps::Bool=length(fold_inds)==nfolds, # default to delete only if the entire eval is done at once
+    kwargs... # further kwargs passed to tune()
     )
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
@@ -83,7 +84,8 @@ function evaluate(
             foldmethod=tuning_foldmethod,
             distribute_folds=distribute_cvfolds,
             workers=cv_workers,
-            pre_string="Fold $fold: "
+            pre_string="Fold $fold: ",
+            kwargs...
         )
         # @show best_params
         opts = _set_options(opts0; best_params...)

@@ -28,7 +28,11 @@ function make_objective(
                     println("Integer parameter $(fieldnames[i])=$field rounded to $(rounded)!")
                 end
             elseif logspace_eta && fieldnames[i] == :eta
+                # @show field
                 optslist_safe[i] = convert(t, 10^field)
+                if output
+                    println("Logspace eta $field -> $(10^field)")
+                end
             else
                 optslist_safe[i] = convert(t, field)
             end
@@ -56,7 +60,7 @@ function make_objective(
         
         key = tuple(optslist_safe...)
         if haskey(cache, key )
-            verbosity >= 1 && println(pre_string, "iter $iters:Cache hit at $(optslist_safe)!")
+            verbosity >= 1 && println(pre_string, "iter $iters:Cache hit at $(optslist) -> $(optslist_safe)!")
             loss = cache[key]
         else
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
@@ -98,7 +102,7 @@ function tune_across_folds(
     y::AbstractVector, 
     tstart::Real
     )
-    x0, opts0, lb, ub, is_disc, fields, types = parameter_info
+    x0, opts0, bounded, lb, ub, is_disc, fields, types = parameter_info
     objective, method, workers, distribute_folds, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
 
     tr_objective, cache, safe_params = make_objective(folds, objective, workers, distribute_folds, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
@@ -116,7 +120,11 @@ function tune_across_folds(
 
     x0_adj = provide_x0 ? x0 : nothing
     obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
-    prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
+    if bounded
+        prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
+    else
+        prob = OptimizationProblem(obj, x0_adj, p; int=is_disc)
+    end
     sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
 
     verbosity >= 5 && print(sol)
@@ -159,6 +167,7 @@ function tune(
         method=SAMIN(); # bounded simulated annealing from Optim
         opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
         input_supertype::Type=Float64,
+        enforce_bounds::Bool=true,
         objective::TuningLoss=ImputationLoss(), 
         nfolds::Integer=5,
         rng::Union{Integer, AbstractRNG}=1,
@@ -229,7 +238,7 @@ function tune(
     end
 
 
-    parameter_info = x0, opts0, lb, ub, is_disc, fields, types
+    parameter_info = x0, opts0, enforce_bounds, lb, ub, is_disc, fields, types
     tuning_settings = objective, method, workers, distribute_folds, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
     if nfolds <= 1
