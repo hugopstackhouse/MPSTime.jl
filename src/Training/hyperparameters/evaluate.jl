@@ -32,6 +32,7 @@ function evaluate(
     tuning_maxiters::Integer=500,
     distribute_folds::Bool=false,   
     distribute_cvfolds::Bool=false,
+    distribute_final_eval::Bool=false,
     write::Bool=false,
     writedir::String="evals",
     simname::String="",
@@ -62,7 +63,7 @@ function evaluate(
     
         abs_rng_inner = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
         tuning_windows_inner = make_windows(tuning_windows, tuning_pms, X, abs_rng_inner)
-        best_params = tune(
+        best_params, cache = tune(
             X_train, 
             y_train, 
             tuning_parameters,
@@ -102,7 +103,8 @@ function evaluate(
             "eval_pms"=>eval_pms,
             "time"=>time() - tbeg,
             "opts"=>opts, 
-            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold, distribute=distribute_folds)
+            "cache"=>cache,
+            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold, distribute=distribute_final_eval)
         )
         mps, X_train, X_test, y_train, y_test = nothing, nothing, nothing, nothing, nothing # attempt to force garbage collection - probably does nothing
         if write

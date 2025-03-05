@@ -56,7 +56,7 @@ function make_objective(
         
         key = tuple(optslist_safe...)
         if haskey(cache, key )
-            verbosity >= 1 && println(pre_string, "iter $iters:Cache hit!")
+            verbosity >= 1 && println(pre_string, "iter $iters:Cache hit at $(optslist_safe)!")
             loss = cache[key]
         else
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
@@ -122,7 +122,7 @@ function tune_across_folds(
     verbosity >= 5 && print(sol)
     optslist_safe = safe_params(sol.u)
     best_params = NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
-    return best_params
+    return best_params, cache
 
 end
 
