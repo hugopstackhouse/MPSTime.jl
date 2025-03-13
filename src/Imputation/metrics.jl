@@ -74,6 +74,16 @@ function mase(train::Vector{Float64}, forecast::Vector{Float64}, actual::Vector{
 
 end
 
+function me(forecast::Vector{Float64}, actual::Vector{Float64})
+    """Just the mean error, no fancy business going on here."""
+    diffs = forecast .- actual
+    return mean(diffs)
+end
+
+function residual_error(forecast::Vector{Float64}, actual::Vector{Float64})
+    return actual .- forecast
+end
+
 # excluded MASE due to needing to set a seasonal period - depends on dataset. 
 function compute_all_forecast_metrics(forecast::Vector{Float64}, 
     actual::Vector{Float64}, print_table::Bool=true)

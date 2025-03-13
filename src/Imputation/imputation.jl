@@ -468,8 +468,10 @@ function MPS_impute(
             if full_metrics
                 push!(metrics, compute_all_forecast_metrics(t[missing_sites], target[missing_sites], print_metric_table))
             else
-                push!(metrics, Dict(:MAE => mae(t[missing_sites], target[missing_sites]), 
-                    :MAPE => mape(t[missing_sites], target[missing_sites])))
+                push!(metrics, Dict(:MPS_MAE => mae(t[missing_sites], target[missing_sites]), 
+                    :MPS_MAPE => mape(t[missing_sites], target[missing_sites]),
+                    :MPS_ME => me(t[missing_sites], target[missing_sites]),
+                    :MPS_residuals => residual_error(t[missing_sites], target[missing_sites])))
             end
         end
     end
@@ -487,15 +489,22 @@ function MPS_impute(
 
         
         if get_metrics
+            metrics_nn = Dict()
             if full_metrics # only compute the first NN_MAE
                 NN_metrics = compute_all_forecast_metrics(mse_ts[1][missing_sites], target[missing_sites], print_metric_table)
                 for key in keys(NN_metrics)
-                    metrics[1][Symbol("NN_" * string(key) )] = NN_metrics[key]
+                    metrics_nn[Symbol("NN_" * string(key))] = NN_metrics[key]
+                    #metrics[1][Symbol("NN_" * string(key) )] = NN_metrics[key]
                 end
             else
-                metrics[1][:NN_MAE] = mae(mse_ts[1][missing_sites], target[missing_sites])
-                metrics[1][:NN_MAPE] = mape(mse_ts[1][missing_sites], target[missing_sites])
+                metrics_nn[:NN_MAE] = mae(mse_ts[1][missing_sites], target[missing_sites])
+                metrics_nn[:NN_MAPE] = mape(mse_ts[1][missing_sites], target[missing_sites])
+                metrics_nn[:NN_residuals] = residual_error(mse_ts[1][missing_sites], target[missing_sites])
+                metrics_nn[:NN_ME] = me(mse_ts[1][missing_sites], target[missing_sites])
+                #push!(metrics, Dict(:NN_residuals => residual_error(mse_ts[1][missing_sites], target[missing_sites])))
+                #metrics[1][:NN_residuals] = residual_error(mse_ts[1][missing_sites], target[missing_sites])
             end
+            push!(metrics, metrics_nn)
         end
     end
 
