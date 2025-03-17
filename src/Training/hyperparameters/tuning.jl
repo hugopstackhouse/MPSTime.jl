@@ -46,8 +46,9 @@ function make_objective(
         (train_inds, val_inds) = folds[fold]
         X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
         ti = time()
+        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
         mps, _... = fitMPS(X_train, y_train, opts);
-        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)... (done in $(rtime(ti))s)")
+        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS $(hparams) finished in $(rtime(ti))s)")
 
         return mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
     end
@@ -75,8 +76,9 @@ function make_objective(
                     X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
 
                     ti=time()
+                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
                     mps, _... = fitMPS(X_train, y_train, opts);
-                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)... (done in $(rtime(ti))s)")
+                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS $(hparams) finished in $(rtime(ti))s)")
 
 
                     loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array

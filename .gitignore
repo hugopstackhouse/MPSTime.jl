@@ -12,3 +12,5 @@ statprof/*
 **/statprof*/*
 mlruns/*
 FinalBenchmarks/ItalyPower/Julia/ipd_30fold_imputation_results_mac5sweep.jld2
+logs/*
+*.sh

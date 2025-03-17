@@ -5,7 +5,7 @@ using Optimization
 using OptimizationBBO
 using Random
 # using OptimizationMetaheuristics
-# using OptimizationOptimJL
+using OptimizationOptimJL
 # using OptimizationNLopt
 # using OptimizationOptimisers
 
@@ -14,18 +14,18 @@ Random.seed!(1)
 
 params = (
     eta=(-3,1), 
-    d=(10,20), 
-    chi_max=(20,50),
+    d=(10,25), 
+    chi_max=(35, 75),
     nsweeps=(2,8)
 ,) 
 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
-e["JULIA_WORKER_TIMEOUT"] = "180"
+e["JULIA_WORKER_TIMEOUT"] = "999999"
 
-addprocs(6; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
-@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
+addprocs(30; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO, OptimizationOptimJL
 
 rs_f = jldopen("Folds/ECG200/resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
@@ -40,22 +40,24 @@ res = evaluate(
     params,
     BBO_random_search(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5, sigmoid_transform=false), 
     nfolds=30, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     tuning_windows =nothing,
     tuning_pms=collect(5:10:95) ./100,
-    tuning_abstol=1e-8, 
+    tuning_abstol=1e-9, 
     tuning_maxiters=50,
     verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
-    distribute_folds=true)
+    distribute_folds=true,
+    writedir="ECG",
+    write=true)
 
-@save "ECG_rand_50.jld2" res
+@save "ECG_rand_50_ns.jld2" res
 # 20 iter benchmarks 
 
 
