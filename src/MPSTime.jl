@@ -2,7 +2,7 @@ module MPSTime
 
 # Import these two libraries First and in this order
 using GenericLinearAlgebra
-using MKL
+# using MKL (Banished for crimes)
 
 using LinearAlgebra # low level blas algorithms
 using Strided # strided array support
