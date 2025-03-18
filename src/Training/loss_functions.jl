@@ -56,8 +56,21 @@ function custGD(
     return BT
 end
 
-function TSGO(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
-    iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
+function TSGO(
+        tsep::TrainSeparate, 
+        BT_init::BondTensor, 
+        LE::PCache, 
+        RE::PCache, 
+        lid::Int, 
+        rid::Int, 
+        ETSs::EncodedTimeSeriesSet;
+        iters=10, 
+        verbosity::Real=1, 
+        dtype::DataType=ComplexF64, 
+        loss_grad::Function=loss_grad_KLD, 
+        track_cost::Bool=false, 
+        eta::Real=0.01
+    )
     BT = copy(BT_init) # perhaps not necessary?
     for i in 1:iters
         # get the gradient
@@ -502,7 +515,7 @@ function yhat_phitilde_MSE!!(
         if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
-            @inbounds @fastmath kron_scaleadd_firstsite_MSE!(phi_tilde, phit_prev, bt, yhat, yprev, REP[rid+1], ps[rid],ps[lid])
+            @inbounds @fastmath kron_scaleadd_firstsite_MSE!(phi_tilde, phit_prev, bt, yhat, yprev, REP[rid+1], ps[rid], ps[lid])
         else
             @inbounds @fastmath kron_scaleadd_MSE!(phi_tilde, phit_prev, bt, yhat, yprev, ps[rid], ps[lid])
         end
@@ -519,7 +532,7 @@ end
 
 
 
-function MSE_iter(
+function MSE_iter!(
         yhat::Base.RefValue{Float64},
         yprev::Base.RefValue{Float64},
         phit_scaled::AbstractVector, 
@@ -579,7 +592,7 @@ function (::Loss_Grad_MSE)(
         class_mask[c_inds] .= 1.
 
         @inbounds @fastmath loss = mapreduce(
-            (LEP,REP, prod_state, mask) -> MSE_iter!( 
+            (LEP, REP, prod_state, mask) -> MSE_iter!( 
                 yhat,
                 yprev,
                 view(phit_scaled, :, ci), 
@@ -591,11 +604,12 @@ function (::Loss_Grad_MSE)(
                 lid,
                 rid,
                 mask
-            ),+, eachcol(view(LE)), eachcol(view(RE)),TSs, class_mask)
+            ),+, eachcol(LE), eachcol(RE), TSs, class_mask)
 
         @inbounds @fastmath losses += loss 
-        @inbounds @fastmath @. phit_scaled[:, ci] = conj(phit_scaled[:, ci] + phit_prev * (yhat[] - yprev[])) / nts
+        @inbounds @fastmath @. phit_scaled[:, ci] = (phit_scaled[:, ci] + conj(phit_prev) * (yhat[] - yprev[])) / nts
         class_mask[c_inds] .= 0.
+        i_prev += cn
     end
 
     return losses/nts, phit_scaled

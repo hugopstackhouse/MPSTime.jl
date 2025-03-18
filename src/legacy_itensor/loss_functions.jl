@@ -416,8 +416,8 @@ function yhat_phitilde(
     end
 end
 
-function yhat_phitilde!(
-        phi_tilde::ITensor, 
+function yhat_phitilde(
+        # phi_tilde::ITensor, 
         BT::ITensor, 
         LEP::PCacheColIT, 
         REP::PCacheColIT, 
@@ -434,20 +434,20 @@ function yhat_phitilde!(
         if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
-            @inbounds @fastmath phi_tilde .=  conj.(ps[lid] * ps[rid]) * REP[rid+1]
+            @inbounds @fastmath phi_tilde =  conj.(ps[lid] * ps[rid]) * REP[rid+1]
         end
        
     elseif rid == length(ps)
         # terminal site, no RE
-        phi_tilde .=  conj.(ps[rid] * ps[lid]) * LEP[lid-1] 
+        phi_tilde =  conj.(ps[rid] * ps[lid]) * LEP[lid-1] 
 
     else
         if hastags(ind(BT, 1), "Site,n=$lid")
             # going right
-            @inbounds @fastmath phi_tilde .= conj.(ps[lid]) * LEP[lid-1] * conj.(ps[rid]) * REP[rid+1]
+            @inbounds @fastmath phi_tilde = conj.(ps[lid]) * LEP[lid-1] * conj.(ps[rid]) * REP[rid+1]
         else
             # going left
-            @inbounds @fastmath phi_tilde .=  conj.(ps[rid]) * REP[rid+1] * conj.(ps[lid]) * LEP[lid-1] 
+            @inbounds @fastmath phi_tilde =  conj.(ps[rid]) * REP[rid+1] * conj.(ps[lid]) * LEP[lid-1] 
         end
         # we are in the bulk, both LE and RE exist
         # phi_tilde *= LEP[lid-1] * REP[rid+1]
@@ -457,7 +457,7 @@ function yhat_phitilde!(
 
     @inbounds @fastmath yhat = BT * phi_tilde # NOT a complex inner product !! 
 
-    return yhat
+    return yhat, phi_tilde
 
 end
 
