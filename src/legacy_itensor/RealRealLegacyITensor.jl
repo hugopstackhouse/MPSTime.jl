@@ -13,8 +13,8 @@ function construct_caches_IT(
     N = length(W)
 
     # pre-allocate left and right environment matrices 
-    LE = PCache(undef, N, N_train) 
-    RE = PCache(undef, N, N_train)
+    LE = PCacheIT(undef, N, N_train) 
+    RE = PCacheIT(undef, N, N_train)
 
     if going_left
         # backward direction - initialise the LE with the first site
@@ -51,11 +51,11 @@ end
 function update_caches_IT!(
         left_site_new::ITensor, 
         right_site_new::ITensor, 
-        LE::PCache, 
-        RE::PCache, 
+        LE::PCacheIT, 
+        RE::PCacheIT, 
         lid::Int, 
         rid::Int, 
-        product_states::TimeSeriesIterable; 
+        product_states::TimeSeriesIterableIT; 
         going_left::Bool=true
     )
     """Given a newly updated bond tensor, update the caches."""
@@ -295,7 +295,7 @@ function fitMPS_IT(
             BT_new = apply_update_IT(
                 tsep, 
                 BT, 
-                E, 
+                LE, 
                 RE, 
                 j, 
                 (j+1), 
@@ -357,7 +357,7 @@ function fitMPS_IT(
             W[(j+1)] = rsn
         end
 
-        LE, RE = construct_caches(W, training_states; going_left=true)
+        LE, RE = construct_caches_IT(W, training_states; going_left=true)
         
         finish = time()
 

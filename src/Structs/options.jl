@@ -127,7 +127,7 @@ function MPSOptions(;
     chi_init::Int=4, # Initial bond dimension of the randomMPS fitMPS(...; chi_init=val)
     log_level::Int=3, # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
     data_bounds::Tuple{Real, Real}=(0.,1.),
-    use_legacy_ITensor::Bool=true # Whether to use the old, slow ITensor Implementation
+    use_legacy_ITensor::Bool=false # Whether to use the old, slow ITensor Implementation
     )
 
     return MPSOptions(verbosity, nsweeps, chi_max, eta, d, encoding, 
@@ -202,7 +202,7 @@ function Options(;
         data_bounds::Tuple{<:Real, <:Real}=(0.,1.),
         chi_init::Integer=4,
         init_rng::Integer=1234,
-        use_legacy_ITensor::Bool=true # Whether to use the old, slow ITensor Implementation
+        use_legacy_ITensor::Bool=false # Whether to use the old, slow ITensor Implementation
     )
 
     if encoding isa Symbol

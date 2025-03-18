@@ -144,7 +144,7 @@ function update_caches!(
 end
 
 function decomposeBT(
-        BT::BondTensor, 
+        BT::ITensor, 
         lid::Int, 
         rid::Int; 
         chi_max=nothing, 
@@ -547,9 +547,9 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
     end
 
     if opts.use_legacy_ITensor
-        return [fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states_meta), EncodedTimeSeriesSetIT(testing_states_meta), opts, test_run=test_run)..., extra_args... ]
+        return [fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states, sites), EncodedTimeSeriesSetIT(testing_states, sites), opts, test_run=test_run)..., extra_args... ]
     else
-        return [fitMPS(W, training_states_meta, testing_states_meta, opts, test_run=test_run)..., extra_args... ]
+        return [fitMPS(W, training_states, testing_states, opts, test_run=test_run)..., extra_args... ]
     end
 
 end
@@ -569,9 +569,9 @@ function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta:
     W = generate_startingMPS(opts.chi_init, sites, num_classes, opts; init_rng=opts.init_rng)
 
     if opts.use_legacy_ITensor
-        return fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states_meta), EncodedTimeSeriesSetIT(testing_states_meta), opts, test_run=test_run)
+        return fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states, sites), EncodedTimeSeriesSetIT(testing_states, sites), opts, test_run=test_run)
     else
-        return fitMPS(W, training_states_meta, testing_states_meta, opts, test_run=test_run)
+        return fitMPS(W, training_states, testing_states, opts, test_run=test_run)
     end
 end
 

@@ -44,8 +44,8 @@ end
 function loss_grad_enforce_real(
         tsep::TrainSeparate, 
         BT::ITensor, 
-        LE::PCache, 
-        RE::PCache,
+        LE::PCacheIT, 
+        RE::PCacheIT,
         ETSs::EncodedTimeSeriesSetIT, 
         lid::Int, 
         rid::Int, 
@@ -79,8 +79,8 @@ function loss_grad!(
         G,
         B_flat::AbstractArray,
         b_inds::Tuple{Vararg{Index{Int64}}}, 
-        LE::PCache, 
-        RE::PCache,
+        LE::PCacheIT, 
+        RE::PCacheIT,
         ETSs::EncodedTimeSeriesSetIT, 
         lid::Int, 
         rid::Int, 
@@ -172,8 +172,8 @@ end
 function apply_update_IT(
         tsep::TrainSeparate, 
         BT_init::ITensor, 
-        LE::PCache, 
-        RE::PCache, 
+        LE::PCacheIT, 
+        RE::PCacheIT, 
         lid::Int, 
         rid::Int,
         ETSs::EncodedTimeSeriesSetIT; 
@@ -494,8 +494,8 @@ end
 function (::Loss_Grad_KLD)(
         ::TrainSeparate{true}, 
         BT::ITensor, 
-        LE::PCache, 
-        RE::PCache,
+        LE::PCacheIT, 
+        RE::PCacheIT,
         ETSs::EncodedTimeSeriesSetIT, 
         lid::Int, 
         rid::Int
@@ -538,8 +538,8 @@ end
 function (::Loss_Grad_KLD)(
         ::TrainSeparate{false}, 
         BT::ITensor, 
-        LE::PCache, 
-        RE::PCache,
+        LE::PCacheIT, 
+        RE::PCacheIT,
         ETSs::EncodedTimeSeriesSetIT, 
         lid::Int, 
         rid::Int
@@ -628,8 +628,8 @@ end
 function (::Loss_Grad_MSE)(
         ::TrainSeparate{false}, 
         BT::ITensor, 
-        LE::PCache,
-        RE::PCache,
+        LE::PCacheIT,
+        RE::PCacheIT,
         ETSs::EncodedTimeSeriesSetIT, 
         lid::Int, 
         rid::Int
@@ -690,8 +690,8 @@ end
 function (::Loss_Grad_mixed)(
         ::TrainSeparate{false}, 
         BT::ITensor, 
-        LE::PCache, 
-        RE::PCache,
+        LE::PCacheIT, 
+        RE::PCacheIT,
         ETSs::EncodedTimeSeriesSetIT, 
         lid::Int, 
         rid::Int; 
@@ -713,7 +713,7 @@ end
 
 
 ######################### old  generic Loss_Grad function
-function (::Loss_Grad_default)(::TrainSeparate{false}, BT::ITensor, LE::PCache, RE::PCache,
+function (::Loss_Grad_default)(::TrainSeparate{false}, BT::ITensor, LE::PCacheIT, RE::PCacheIT,
     ETSs::EncodedTimeSeriesSetIT, lid::Int, rid::Int; lg_iter::Function=KLD_iter)
     """Function for computing the loss function and the gradient over all samples using lg_iter and a left and right cache. 
         Allows the input to be complex if that is supported by lg_iter"""
@@ -729,7 +729,7 @@ function (::Loss_Grad_default)(::TrainSeparate{false}, BT::ITensor, LE::PCache, 
 
 end
 
-function (::Loss_Grad_default)(::TrainSeparate{true}, BT::ITensor, LE::PCache, RE::PCache,
+function (::Loss_Grad_default)(::TrainSeparate{true}, BT::ITensor, LE::PCacheIT, RE::PCacheIT,
     ETSs::EncodedTimeSeriesSetIT, lid::Int, rid::Int)
     """Function for computing the loss function and the gradient over all samples using lg_iter and a left and right cache. 
         Allows the input to be complex if that is supported by lg_iter"""

@@ -15,8 +15,8 @@ function PStateIT(ps::PState, site_indices::AbstractVector{Index{Int64}})
     """Create a custom structure to store product state objects, 
     along with their associated label and type (i.e, train, test or valid)"""
     pstate = ps.pstate
-    its = [ITensor(vv[i], site_indices[i]) for i in eachindex(pstate)]
-    return PStateIT(MPS(its), ps.label, ps.label_idx)
+    its = [ITensor(pstate[i], site_indices[i]) for i in eachindex(pstate)]
+    return PStateIT(MPS(its), ps.label, ps.label_index)
 end
 
 function PState(ps::PStateIT)
@@ -24,14 +24,14 @@ function PState(ps::PStateIT)
     along with their associated label and type (i.e, train, test or valid)"""
     pstate = ps.pstate
     vs = [vector(s) for s in pstate]
-    return PState(vs, ps.label, ps.label_idx)
+    return PState(vs, ps.label, ps.label_index)
 end
 
 
 const TimeSeriesIterableIT = Vector{PStateIT}
 
-function to_TimeSeriesIterableIT(ts::TimeSeriesIterable)
-    return PStateIT.(ts)
+function to_TimeSeriesIterableIT(ts::TimeSeriesIterable, site_indices::AbstractVector{Index{Int64}})
+    return [PStateIT(t, site_indices) for t in ts]
 end
 
 function to_TimeSeriesIterable(ts::TimeSeriesIterableIT)
@@ -58,8 +58,8 @@ end
 
 Base.isempty(e::EncodedTimeSeriesSetIT) = isempty(e.timeseries) && isempty(e.original_data) && isempty(e.class_distribution)
 
-function EncodedTimeSeriesSetIT(ETS::EncodedTimeSeriesSet)
-    tsi = to_TimeSeriesIterableIT(ETS.timeseries)
+function EncodedTimeSeriesSetIT(ETS::EncodedTimeSeriesSet, site_indices::AbstractVector{Index{Int64}})
+    tsi = to_TimeSeriesIterableIT(ETS.timeseries, site_indices)
 
     return EncodedTimeSeriesSetIT(tsi, ETS.original_data, ETS.class_distribution)
 end
