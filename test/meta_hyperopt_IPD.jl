@@ -5,18 +5,19 @@ using Distributed
 using Optimization
 using OptimizationBBO
 using Random
+using OptimizationCMAEvolutionStrategy
+using OptimizationEvolutionary
 # using OptimizationMetaheuristics
-# using OptimizationOptimJL
+using OptimizationOptimJL
 # using OptimizationNLopt
 # using OptimizationOptimisers
 
 Random.seed!(1)
-@load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
 params = (
     eta=(-3,1), 
-    d=(10,20), 
-    chi_max=(20,50),
+    d=(2,4),#(10,20), 
+    chi_max=(10,20),#(20,50),
     nsweeps=(2,8)
 ,) 
 e = copy(ENV)
@@ -25,10 +26,12 @@ e["JULIA_NUM_THREADS"] = "1"
 e["JULIA_WORKER_TIMEOUT"] = "360"
 
 if nprocs() == 1
-    addprocs(6; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+    addprocs(2; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
 end
 
-@everywhere using Revise, MPSTime, Distributed, Optimization, OptimizationBBO
+@everywhere using Revise, MPSTime, Distributed, Optimization, OptimizationBBO, CMAEvolutionStrategy, OptimizationEvolutionary
+
+@load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
@@ -41,32 +44,35 @@ res = evaluate(
     vcat(X_train, X_test), 
     vcat(y_train, y_test), 
     params,
-    BBO_random_search(); 
+    NelderMead(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5, sigmoid_transform=false), 
     nfolds=30, 
     n_cvfolds=5,
-    eval_windows=windows_julia,
-    eval_pms=nothing,#collect(5:20:95) ./100,
+    eval_windows=nothing,#windows_julia,
+    eval_pms=[.05],#collect(5:30:95) ./100,#nothing,#collect(5:20:95) ./100,
+    fold_inds=[1,10],
     tuning_windows = nothing,
-    tuning_pms=collect(5:20:95) ./100,
-    tuning_abstol=1e-8, 
-    tuning_maxiters=150,
-    verbosity=1,
+    tuning_pms=collect(5:60:95) ./100,
+    tuning_abstol=1e-9, 
+    tuning_maxiters=20,
+    verbosity=3,
     foldmethod=folds,
     input_supertype=Float64,
-    provide_x0=false,
+    provide_x0=true,
     logspace_eta=true,
     distribute_folds=true,
     distribute_cvfolds=false,
+    writedir="testruns",
+    write=true,
+    collect_tmps=false
 )
 
-using StatsBase
-println(mean(mean(getindex.(res, "loss"))))
-# 0.20072699080538697
+@save "eta_nsweeps.jld2" res
+# 0.20072699080538usi697
 # 0.22382542363624128
 # 0.1972986806310512
-@save "IPD_rand_150_dontcrash.jld2" res
+# @save "IPD_rand_150_dontcrash.jld2" res
 # 20 iter benchmarks 
 
 
