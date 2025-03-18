@@ -1,4 +1,8 @@
-function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{Int64}}, encoding_args::AbstractVector; opts::Options=Options())
+function encode_TS(
+        sample::AbstractVector, 
+        site_indices::AbstractVector{Index{Int64}}, 
+        encoding_args::AbstractVector; opts::Options=Options()
+    )
     """Function to convert a single normalised sample to a product state
     with local dimension as specified by the feature map."""
 
@@ -43,7 +47,15 @@ end
 
 
 
-function encode_safe_dataset(::EncodeSeparate{true}, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, type::String, site_indices::AbstractVector{Index{Int64}}; kwargs...)
+function encode_safe_dataset(
+        ::EncodeSeparate{true}, 
+        X_orig::AbstractMatrix, 
+        X_norm::AbstractMatrix, 
+        y::AbstractVector, 
+        type::String, 
+        site_indices::AbstractVector{Index{Int64}}; 
+        kwargs...
+    )
     # X_norm has dimension num_elements * numtimeseries
 
     classes = unique(y)

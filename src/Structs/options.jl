@@ -34,6 +34,7 @@ struct MPSOptions <: AbstractMPSOptions
     chi_init::Int # Initial bond dimension of the randomMPS
     log_level::Int # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
     data_bounds::Tuple{Real, Real} # the region to bound the data to if minmax=true, setting the bounds a bit away from [0,1] can help when the basis is poorly behaved at the boundaries
+    use_legacy_ITensor::Bool # Whether to use the old, slow ITensor Implementation
 end
 
 
@@ -87,12 +88,13 @@ where ``\\boldsymbol{X''}`` is the scaled robust-sigmoid transformed data matrix
 
 
 ## Loss Functions and Optimisation Methods
-- `loss_grad::Symbol=:KLD`: The type of cost function to use for training the MPS, typically Mean Squared Error (:MSE) or KL Divergence (:KLD), but can also be a weighted sum of the two (:Mixed)
-- `bbopt::Symbol=:TSGO`: Which local Optimiser to use, builtin options are symbol gradient descent (:GD), or gradient descent with a TSGO rule (:TSGO). Other options are Conjugate Gradient descent using either the Optim or OptimKit packages (:Optim or :OptimKit respectively). The CGD methods work well for MSE based loss functions, but seem to perform poorly for KLD base loss functions.
+- `loss_grad::Symbol=:KLD`: The type of cost function to use for training the MPS, typically Mean Squared Error (:MSE) or KL Divergence (:KLD), but can also be a weighted sum of the two (:Mixed) if use_legacy_ITensor is enabled.
+- `bbopt::Symbol=:TSGO`: Which local Optimiser to use, builtin options are symbol gradient descent (:GD), or gradient descent with a TSGO rule (:TSGO). If `use_legacy_ITensor`` is enabled, can be a Conjugate Gradient descent optimisation rule using either the Optim or OptimKit package (:Optim or :OptimKit respectively). The CGD methods work well for MSE based loss functions, but seem to perform poorly for KLD base loss functions.
 
 - `rescale::Tuple{Bool,Bool}=(false,true)`: Has the form `rescale = (before::Bool, after::Bool)`. Where to enforce the normalisation of the MPS during training, either calling normalise!(*Bond Tensor*) before or after BT is updated. Note that for an MPS that starts in canonical form, rescale = (true,true) will train identically to rescale = (false, true) but may be less performant.
 - `update_iters::Int=1`: Maximum number of optimiser iterations to perform for each bond tensor optimisation. E.G. The number of steps of (Conjugate) Gradient Descent used by TSGO, Optim or OptimKit
 - `train_classes_separately::Bool=false`: Whether the the trainer optimises the total MPS loss over all classes or whether it considers each class as a separate problem. Should make very little diffence
+- `use_legacy_ITensor::Bool=false`: Whether to use the old, slow ITensor Implementation
 
 
 ## Debug
@@ -124,7 +126,8 @@ function MPSOptions(;
     init_rng::Int=1234, # SEED ONLY IMPLEMENTED (Itensors fault) random number generator or seed Can be manually overridden by calling fitMPS(...; random_seed=val)
     chi_init::Int=4, # Initial bond dimension of the randomMPS fitMPS(...; chi_init=val)
     log_level::Int=3, # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
-    data_bounds::Tuple{Real, Real}=(0.,1.)
+    data_bounds::Tuple{Real, Real}=(0.,1.),
+    use_legacy_ITensor::Bool=true # Whether to use the old, slow ITensor Implementation
     )
 
     return MPSOptions(verbosity, nsweeps, chi_max, eta, d, encoding, 
@@ -132,7 +135,8 @@ function MPSOptions(;
         dtype, loss_grad, bbopt, track_cost, rescale, 
         train_classes_separately, encode_classes_separately, 
         return_encoding_meta_info, minmax, exit_early, 
-        sigmoid_transform, init_rng, chi_init, log_level, data_bounds)
+        sigmoid_transform, init_rng, chi_init, log_level, data_bounds,use_legacy_ITensor
+    )
 end
 
 
@@ -170,6 +174,7 @@ struct Options <: AbstractMPSOptions
     data_bounds::Tuple{<:Real, <:Real} # the region to bound the data to if minmax=true, setting the bounds a bit away from [0,1] can help when the basis is poorly behaved at the boundaries
     chi_init::Int # initial bond dimension of the mps (before any optimisation)
     init_rng::Int # initial rng seed for generating the MPS
+    use_legacy_ITensor::Bool # Whether to use the old, slow ITensor Implementation
 end
 
 function Options(; 
@@ -196,7 +201,8 @@ function Options(;
         projected_basis=false,
         data_bounds::Tuple{<:Real, <:Real}=(0.,1.),
         chi_init::Integer=4,
-        init_rng::Integer=1234
+        init_rng::Integer=1234,
+        use_legacy_ITensor::Bool=true # Whether to use the old, slow ITensor Implementation
     )
 
     if encoding isa Symbol
@@ -216,7 +222,7 @@ function Options(;
         eta, rescale, d, aux_basis_dim, encoding, train_classes_separately, 
         encode_classes_separately, return_encoding_meta_info, 
         minmax, exit_early, sigmoid_transform, log_level, data_bounds, 
-        chi_init, init_rng
+        chi_init, init_rng, use_legacy_ITensor
         )
 
 end

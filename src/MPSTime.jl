@@ -81,7 +81,14 @@ include("Vis/vis_encodings.jl")
 include("Analysis/analyse.jl")
 
 include("Training/loss_functions.jl") # Where loss functions and the LossFunction type are defined
-include("Training/RealRealHighDimension.jl"); # The training algorithm, fitMPS and co
+include("Training/RealRealHighDimension.jl") # The training algorithm, fitMPS and co
+
+# Legacy ITensor Implementation
+include("legacy_itensor/Structs/structs.jl") # Old structs defined with ITensor 
+include("legacy_itensor/Structs/operations.jl") # Operations like '==' and 'approx' on old ITensor based structs
+include("legacy_itensor/loss_functions.jl") # Loss functions for ITensor based encoding
+include("legacy_itensor/RealRealLegacyITensor.jl") # Legacy fitmps
+
 
 # Imputation
 include("Imputation/imputation.jl") # Some structs, and scaffolds for setting up and solving ImpuationProblems
