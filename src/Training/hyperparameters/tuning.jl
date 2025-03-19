@@ -78,17 +78,18 @@ function make_objective(
                     ti=time()
                     verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
                     mps, _... = fitMPS(X_train, y_train, opts);
-                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS $(hparams) finished in $(rtime(ti))s)")
-
+                    train_time = time()
 
                     loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
+
                 end
                 loss /= nfolds
             end
             
             
             cache[key] = loss
-            verbosity >= 1 && println(pre_string, "t=$(rtime(tstart)): Mean CV Loss: $loss")
+            verbosity >= 1 && println(pre_string, "iter $iters, t=$(rtime(tstart)): Mean CV Loss: $loss")
         end
         return loss
     end
@@ -97,6 +98,7 @@ function make_objective(
 end
 
 function tune_across_folds(
+    rng::AbstractRNG,
     folds::AbstractVector, 
     parameter_info::Tuple,
     tuning_settings::Tuple,
@@ -119,18 +121,25 @@ function tune_across_folds(
         return NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
     end
 
-
-    x0_adj = provide_x0 ? x0 : nothing
-    obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
-    if bounded
-        prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
+    if method isa MPSGridSearch
+        sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, maxiters)
+        optslist_safe = safe_params(sol)
     else
-        prob = OptimizationProblem(obj, x0_adj, p; int=is_disc)
-    end
-    sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
 
-    verbosity >= 5 && print(sol)
-    optslist_safe = safe_params(sol.u)
+        x0_adj = provide_x0 ? x0 : nothing
+        obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
+        if bounded
+            prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
+        else
+            prob = OptimizationProblem(obj, x0_adj, p; int=is_disc)
+        end
+        sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
+        verbosity >= 5 && print(sol)
+        optslist_safe = safe_params(sol.u)
+    end
+
+
+
     best_params = NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
     return best_params, cache
 
@@ -260,7 +269,7 @@ function tune(
     end
 
 
-    return tune_across_folds(folds, parameter_info, tuning_settings, X, y, tstart)
+    return tune_across_folds(abs_rng, folds, parameter_info, tuning_settings, X, y, tstart)
 
 end
 

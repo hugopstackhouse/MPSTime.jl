@@ -14,18 +14,17 @@ Random.seed!(1)
 @load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
 params = (
-    eta=(-3,1), 
+    eta=(-3,log10(0.5)), 
     d=(10,20), 
-    chi_max=(20,50),
-    nsweeps=(2,8)
-,) 
+    chi_max=(5,10),
+) 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 e["JULIA_WORKER_TIMEOUT"] = "1200"
 
 if nprocs() == 1
-    addprocs(6; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+    addprocs(2; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
 end
 
 @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
@@ -37,21 +36,23 @@ close(rs_f)
 @load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
+Xs = vcat(X_train, X_test)
+ys = ones(Int, size(Xs, 1))
 res = evaluate(
-    vcat(X_train, X_test), 
-    vcat(y_train, y_test), 
+    Xs,
+    ys,
     params,
-    BBO_adaptive_de_rand_1_bin(); 
+    MPSGridSearch(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5, sigmoid_transform=false), 
-    nfolds=6, 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
+    nfolds=2, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     eval_pms=nothing,#collect(5:20:95) ./100,
     tuning_windows = nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
-    tuning_maxiters=50,
+    tuning_maxiters=10,
     verbosity=1,
     foldmethod=folds,
     input_supertype=Float64,

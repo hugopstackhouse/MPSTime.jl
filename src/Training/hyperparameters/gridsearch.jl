@@ -1,75 +1,99 @@
+function make_grid(
+    rng::AbstractRNG,
+    grid_type::Symbol, 
+    lb::AbstractVector{N}, 
+    ub::AbstractVector{N}, 
+    is_disc::AbstractVector{Bool},
+    types::AbstractVector{Type}, 
+    maxiters::Integer;
+    maxrerolls::Integer=100
+    ) where N <: Number
 
-function make_grid(grid_type::Symbol, sweep_range::Union{Vector{Int}, StepRange}, 
-    d_range::Union{Vector{Int}, StepRange}, 
-    chi_range::Union{Vector{Int}, StepRange}, 
-    eta_range::Union{Vector{Float64}, StepRangeLen}; 
-    num_evals::Int=10, 
-    rng::Union{AbstractRNG, Nothing}=nothing)
 
-    grid_iter = Iterators.product(sweep_range, d_range, chi_range, eta_range)
-
-    if grid_type == :random
+    if grid_type == :UniformRandom
         # check that number of samples is less than exhuastive search
-        total_combos = length(grid_iter)
-        if num_evals > total_combos
-            throw(ArgumentError("Number of evaluations ($num_evals) exceeds total possible hyperparameter combinations ($total_combos)."))
+        samps = Vector{<:Vector{N}}(undef, maxiters)
+        for i in 1:maxiters
+            nrolls = 1
+            success = false
+            samp = Vector{N}(undef, length(lb))
+
+            while ~success && nrolls <= maxrerolls
+                for j in eachindex(samp)
+                    if is_disc[j]
+                        samp[j] = sample(rng, lb[j]:ub[j])
+                    else 
+                        samp[j] = (ub[j] - lb[j]) * rand(rng) + lb[j]
+                    end
+                end
+                if samp in samps[1:i-1]
+                    nrolls += 1
+                else
+                    success = true
+                end
+            end
+            if ~success
+                @warn "Skipped sample $i/$maxiters as it wasn't unique after $maxrerolls attempts"
+            else
+                samps[i] = samp
+            end
         end
-        if rng === nothing
-            rng = Xoshiro()
+        
+        return samps
+
+    elseif grid_type == :LatinHypercube
+        dims = Vector{LHS.LHCDimension}(undef, length(lb))
+        for i in eachindex(lb)
+            if is_disc[i]
+                dims[i] = LHS.Categorical(round(Int, ub[i] - lb[i] + 1))
+            else
+                dims[i] = LHS.Continuous()
+            end
         end
-        return sample(rng, collect(grid_iter), num_evals; replace=false)
-    elseif grid_type == :exhaustive
-        return vcat(grid_iter...)
+        LHC = LHS.randomLHC(rng, maxiters, dims)
+
+        LHCs = LHS.scaleLHC(LHC, map(tuple, lb, ub))
+
+        return collect(eachrow(LHCs))
+
+    elseif grid_type == :Exhaustive
+        if all(is_disc)
+            return reduce(vcat, Iterators.product(map(range, lb, ub)...))
+        else
+            throw(ArgumentError("All hyperparameters must be discrete if using the :Exhaustive search method"))
+        end
+
     else
-        throw(ArgumentError("grid type $(str(grid_type)) is not valid. Choose either :random or :exhaustive."))
+        throw(ArgumentError("Unknown sampling type, expected :LatinHypercube, :UniformRandom, or :Exhaustive")
+)
     end
 end
 
 
-"""
-K-fold cross validation for time-series imputation. 
-"""
-function search_cv_impute(X::Matrix, k::Int, grid_type::Symbol=:random; 
-    sweep_range::Union{Vector{Int}, StepRange}, 
-    d_range::Union{Vector{Int}, StepRange}, 
-    chi_range::Union{Vector{Int}, StepRange}, 
-    eta_range::Union{Vector{Float64}, StepRangeLen},
-    rng::Union{AbstractRNG, Nothing}=nothing,
-    num_models::Int=10)
+function grid_search(
+    rng::AbstractRNG,
+    objective::Function, 
+    method::MPSGridSearch, 
+    lb::AbstractVector{<:Number}, 
+    ub::AbstractVector{<:Number}, 
+    is_disc::AbstractVector{Bool},
+    types::AbstractVector{Type}, 
+    maxiters::Integer;
+    maxrerolls::Integer=100
+    )
 
-    X_train_idxs, X_val_idxs = make_folds(X, k; rng=rng)
-    param_grid = make_grid(grid_type, sweep_range, d_range, chi_range, eta_range; num_evals=num_models, rng=rng)
-    model_scores = Vector{Float64}(undef, length(param_grid)) # holds mean scores across k folds
-    pms = collect(0.05:0.15:0.95)
+    trials = make_grid(rng, method.sampling, lb, ub, is_disc, types, maxiters; maxrerolls=maxrerolls)
 
-    # loop over models (parameter combinations)
-    for (ipg, (sw, d, chi, eta)) in enumerate(param_grid)
-        printstyled("Evaluating model [$ipg/$(length(param_grid))]: $((sw, d, chi, eta))\n"; bold=true, color=:cyan)
-        opts = MPSOptions(d=d, chi_max=chi, nsweeps=sw, eta=eta, sigmoid_transform=false, log_level=0);
-        model_fold_scores = Vector{Float64}(undef, k) # score for each fold for each model
-        for fold in 1:k
-            printstyled("Evaluating fold $fold/$k...\n", color=:red)
-            X_train_fold = X[X_train_idxs[fold], :]
-            X_val_fold = X[X_val_idxs[fold], :]
-            mps = fitMPS(X_train_fold, opts)[1];
-            imp = init_imputation_problem(mps, X_val_fold);
-            numval = size(X_val_fold, 1)
-            instance_scores = Vector{Float64}(undef, numval) # score for each instance across all % missing
-            for inst in eachindex(instance_scores)
-                instance_pm_scores_mps = Vector{Float64}(undef, length(pms)) # score for each % missing for a given instance
-                for (ipm, pm) in enumerate(pms)
-                    impute_sites = mar(X_val_fold[inst, :], pm)[2]
-                    stats = MPS_impute(imp, 0, inst, impute_sites, :median; NN_baseline=false, plot_fits=false)[4]
-                    instance_pm_scores_mps[ipm] = stats[1][:MAE]
-                end
-                instance_scores[inst] = mean(instance_pm_scores_mps)
-            end
-            model_fold_scores[fold] = mean(instance_scores) # mean score across all instances in validation set
+    losses = Vector{Float64}(undef, length(trials))
+    min_ind = -1
+    min_loss = Inf64
+    for i in eachindex(trials)
+        losses[i] = objective(trials[i])
+        if losses[i] < min_loss
+            min_loss = losses[i]
+            min_ind = i
         end
-        model_scores[ipg] = mean(model_fold_scores) # mean score for given model across all folds
     end
-    # get best scoring parameters
-    sweeps_best, d_best, chi_best, eta_best = param_grid[argmin(model_scores)]
-    best_params = Dict(:nsweeps => sweeps_best, :d => d_best, :chi_max => chi_best, :eta => eta_best)
-    return best_params, param_grid, model_scores
+    return trials[min_ind]
+
 end

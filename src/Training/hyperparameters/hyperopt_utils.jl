@@ -2,6 +2,19 @@ abstract type TuningLoss end
 struct ClassificationLoss <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 
+struct MPSGridSearch
+    sampling::Symbol
+
+    function MPSGridSearch(sampling::Symbol=:LatinHypercube)
+        if sampling in [:LatinHypercube, :UniformRandom, :Exhaustive]
+            return new(sampling)
+        else
+            throw(ArgumentError("Unknown sampling type, expected :LatinHypercube, :UniformRandom, or :Exhaustive"))
+        end
+    end
+end
+
+const MPSRandomSearch = MPSGridSearch
 
 function divide_procs(workers, nfolds)
     nprocs = length(workers)
@@ -71,6 +84,11 @@ end
 function rtime(tstart::Float64)
 
     return round(time() - tstart; digits=2)
+end
+
+function rtime(tstart::Float64, tend::Float64)
+
+    return round(tend - tstart; digits=2)
 end
 
 

@@ -25,6 +25,7 @@ using Normalization # Standardised normalisation by Brendan :). Used to do the p
 # Libraries for hyperparmeter tuning
 using Optimization
 using OptimizationOptimJL
+import LatinHypercubeSampling as LHS # for random search
 import MLJBase
 
 
@@ -103,7 +104,7 @@ include("Simulation/toy_data.jl"); # functions to simulate synthetic data
 
 # hyperparameter tuning
 include("Training/hyperparameters/hyperopt_utils.jl")
-# include("Training/hyperparameters/gridsearch.jl")
+include("Training/hyperparameters/gridsearch.jl")
 include("Training/hyperparameters/tuning.jl")
 include("Training/hyperparameters/evaluate.jl")
 
@@ -167,6 +168,7 @@ export
     eval_loss,
     ImputationLoss,
     ClassificationLoss,
+    MPSGridSearch,
     # MLJ 
     MPSClassifier
 end

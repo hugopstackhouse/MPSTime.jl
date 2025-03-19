@@ -10,22 +10,23 @@ using OptimizationOptimJL
 # using OptimizationOptimisers
 
 Random.seed!(1)
-@load "test/Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
-
-params = (
-    eta=(-3,1), 
-    d=(10,25), 
-    chi_max=(35, 75),
-    nsweeps=(2,8)
-,) 
-
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
-e["JULIA_WORKER_TIMEOUT"] = "999999"
 
-addprocs(30; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+if nprocs() == 1
+    addprocs(2; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+end
 @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO, OptimizationOptimJL
+
+@load "test/Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
+
+params = (
+    eta=(-3,log10(0.5)), 
+    d=(2,4), 
+    chi_max=(5,10),
+) 
+
 
 rs_f = jldopen("Folds/ECG200/resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
@@ -34,20 +35,22 @@ close(rs_f)
 @load "Folds/ECG200/windows_julia_idx.jld2" windows_julia
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
+Xs = vcat(X_train, X_test)
+ys = ones(Int, size(Xs, 1))
 res = evaluate(
-    vcat(X_train, X_test), 
-    vcat(y_train, y_test), 
+    Xs,
+    ys,
     params,
-    BBO_random_search(); 
+    MPSGridSearch(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5, sigmoid_transform=false), 
-    nfolds=30, 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
+    nfolds=2, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     tuning_windows =nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
-    tuning_maxiters=50,
+    tuning_maxiters=3,
     verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
@@ -57,7 +60,7 @@ res = evaluate(
     writedir="ECG",
     write=true)
 
-@save "ECG_rand_50_ns.jld2" res
+# @save "ECG_rand_50_ns.jld2" res
 # 20 iter benchmarks 
 
 
