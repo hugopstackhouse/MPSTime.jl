@@ -74,7 +74,7 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
         end
         return [mar(collect(1.:ts_length), pm; rng=rng)[2] for pm in pms]
     else
-        throw(ArgumentError"Cannot specifiy both windows and pms!")
+        throw(ArgumentError("Cannot specifiy both windows and pms!"))
         return []
     end
 end

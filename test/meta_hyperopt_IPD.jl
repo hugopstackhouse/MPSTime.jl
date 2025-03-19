@@ -1,9 +1,9 @@
-using Revise
+# using Revise
 using MPSTime
 using JLD2
 using Distributed
-using Optimization
-using OptimizationBBO
+# using Optimization
+# using OptimizationBBO
 using Random
 # using OptimizationMetaheuristics
 # using OptimizationOptimJL
@@ -15,16 +15,15 @@ Random.seed!(1)
 
 params = (
     eta=(-3,log10(0.5)), 
-    d=(10,20), 
-    chi_max=(5,10),
+    d=(10,15), 
+    chi_max=(30,60),
 ) 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
-e["JULIA_WORKER_TIMEOUT"] = "1200"
 
 if nprocs() == 1
-    addprocs(2; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+    addprocs(15; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
 end
 
 @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
@@ -45,14 +44,14 @@ res = evaluate(
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-    nfolds=2, 
+    nfolds=30, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     eval_pms=nothing,#collect(5:20:95) ./100,
     tuning_windows = nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
-    tuning_maxiters=10,
+    tuning_maxiters=150,
     verbosity=1,
     foldmethod=folds,
     input_supertype=Float64,
@@ -60,13 +59,14 @@ res = evaluate(
     logspace_eta=true,
     distribute_folds=true,
     distribute_cvfolds=false,
-    write=false
+    write=true,
+    writedir="IPD_3"
 )
 
 # 0.20072699080538697
 # 0.22382542363624128
 # 0.1972986806310512
-@save "IPD_gen_50_full_no_s.jld2" res
+# @save "IPD_gen_50_full_no_s.jld2" res
 # 20 iter benchmarks 
 
 
