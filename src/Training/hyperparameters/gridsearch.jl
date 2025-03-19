@@ -73,7 +73,7 @@ end
 function grid_search(
     rng::AbstractRNG,
     objective::Function, 
-    method::MPSGridSearch, 
+    method::MPSRandomSearch, 
     lb::AbstractVector{<:Number}, 
     ub::AbstractVector{<:Number}, 
     is_disc::AbstractVector{Bool},

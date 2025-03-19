@@ -2,10 +2,10 @@ abstract type TuningLoss end
 struct ClassificationLoss <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 
-struct MPSGridSearch
+struct MPSRandomSearch
     sampling::Symbol
 
-    function MPSGridSearch(sampling::Symbol=:LatinHypercube)
+    function MPSRandomSearch(sampling::Symbol=:LatinHypercube)
         if sampling in [:LatinHypercube, :UniformRandom, :Exhaustive]
             return new(sampling)
         else
@@ -14,7 +14,6 @@ struct MPSGridSearch
     end
 end
 
-const MPSRandomSearch = MPSGridSearch
 
 function divide_procs(workers, nfolds)
     nprocs = length(workers)
@@ -75,7 +74,7 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
         end
         return [mar(collect(1.:ts_length), pm; rng=rng)[2] for pm in pms]
     else
-        throw(ArgumentError("Must specify either windows or pms!"))
+        throw(ArgumentError"Cannot specifiy both windows and pms!")
         return []
     end
 end

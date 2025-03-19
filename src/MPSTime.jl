@@ -168,7 +168,7 @@ export
     eval_loss,
     ImputationLoss,
     ClassificationLoss,
-    MPSGridSearch,
+    MPSRandomSearch,
     # MLJ 
     MPSClassifier
 end

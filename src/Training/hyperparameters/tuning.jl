@@ -121,7 +121,7 @@ function tune_across_folds(
         return NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
     end
 
-    if method isa MPSGridSearch
+    if method isa MPSRandomSearch
         sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, maxiters)
         optslist_safe = safe_params(sol)
     else

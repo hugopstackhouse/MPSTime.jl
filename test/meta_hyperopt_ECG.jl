@@ -41,13 +41,14 @@ res = evaluate(
     Xs,
     ys,
     params,
-    MPSGridSearch(); 
+    MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
     nfolds=2, 
     n_cvfolds=5,
-    eval_windows=windows_julia,
-    tuning_windows =nothing,
+    eval_windows=nothing,#windows_julia,
+    eval_pms = collect(5:10:95) ./100,
+    tuning_windows = nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
     tuning_maxiters=3,

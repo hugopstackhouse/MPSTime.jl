@@ -42,7 +42,7 @@ res = evaluate(
     Xs,
     ys,
     params,
-    MPSGridSearch(); 
+    MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
     nfolds=2, 
