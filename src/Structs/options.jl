@@ -35,6 +35,7 @@ struct MPSOptions <: AbstractMPSOptions
     log_level::Int # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
     data_bounds::Tuple{Real, Real} # the region to bound the data to if minmax=true, setting the bounds a bit away from [0,1] can help when the basis is poorly behaved at the boundaries
     use_legacy_ITensor::Bool # Whether to use the old, slow ITensor Implementation
+    svd_alg::String # SVD Algorithm to pass to ITensor
 end
 
 
@@ -95,7 +96,8 @@ where ``\\boldsymbol{X''}`` is the scaled robust-sigmoid transformed data matrix
 - `update_iters::Int=1`: Maximum number of optimiser iterations to perform for each bond tensor optimisation. E.G. The number of steps of (Conjugate) Gradient Descent used by TSGO, Optim or OptimKit
 - `train_classes_separately::Bool=false`: Whether the the trainer optimises the total MPS loss over all classes or whether it considers each class as a separate problem. Should make very little diffence
 - `use_legacy_ITensor::Bool=false`: Whether to use the old, slow ITensor Implementation
-
+- `svd_alg::String="divide_and_conquer"`: SVD Algorithm to pass to ITensor
+`
 
 ## Debug
 - `return_encoding_meta_info::Bool=false`: Debug flag: Whether to return the normalised data as well as the histogram bins for the splitbasis types
@@ -127,7 +129,8 @@ function MPSOptions(;
     chi_init::Int=4, # Initial bond dimension of the randomMPS fitMPS(...; chi_init=val)
     log_level::Int=3, # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
     data_bounds::Tuple{Real, Real}=(0.,1.),
-    use_legacy_ITensor::Bool=false # Whether to use the old, slow ITensor Implementation
+    use_legacy_ITensor::Bool=false, # Whether to use the old, slow ITensor Implementation
+    svd_alg::String="divide_and_conquer" # SVD Algorithm to pass to ITensor
     )
 
     return MPSOptions(verbosity, nsweeps, chi_max, eta, d, encoding, 
@@ -135,7 +138,7 @@ function MPSOptions(;
         dtype, loss_grad, bbopt, track_cost, rescale, 
         train_classes_separately, encode_classes_separately, 
         return_encoding_meta_info, minmax, exit_early, 
-        sigmoid_transform, init_rng, chi_init, log_level, data_bounds,use_legacy_ITensor
+        sigmoid_transform, init_rng, chi_init, log_level, data_bounds,use_legacy_ITensor, svd_alg
     )
 end
 
@@ -175,6 +178,8 @@ struct Options <: AbstractMPSOptions
     chi_init::Int # initial bond dimension of the mps (before any optimisation)
     init_rng::Int # initial rng seed for generating the MPS
     use_legacy_ITensor::Bool # Whether to use the old, slow ITensor Implementation
+    svd_alg::String # SVD Algorithm to pass to ITensor
+
 end
 
 function Options(; 
@@ -202,7 +207,8 @@ function Options(;
         data_bounds::Tuple{<:Real, <:Real}=(0.,1.),
         chi_init::Integer=4,
         init_rng::Integer=1234,
-        use_legacy_ITensor::Bool=false # Whether to use the old, slow ITensor Implementation
+        use_legacy_ITensor::Bool=false, # Whether to use the old, slow ITensor Implementation
+        svd_alg::String="divide_and_conquer" # SVD Algorithm to pass to ITensor
     )
 
     if encoding isa Symbol
@@ -222,7 +228,7 @@ function Options(;
         eta, rescale, d, aux_basis_dim, encoding, train_classes_separately, 
         encode_classes_separately, return_encoding_meta_info, 
         minmax, exit_early, sigmoid_transform, log_level, data_bounds, 
-        chi_init, init_rng, use_legacy_ITensor
+        chi_init, init_rng, use_legacy_ITensor, svd_alg
         )
 
 end

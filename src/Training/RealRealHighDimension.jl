@@ -150,7 +150,9 @@ function decomposeBT(
         chi_max=nothing, 
         cutoff=nothing, 
         going_left=true, 
-        dtype::DataType=ComplexF64
+        dtype::DataType=ComplexF64,
+        alg::String="divide_and_conquer" 
+
     )
     """Decompose an updated bond tensor back into two tensors using SVD"""
 
@@ -161,10 +163,10 @@ function decomposeBT(
         label_idx = find_index(BT, "f(x)")
         # need to make sure the label index is transferred to the next site to be updated
         if lid == 1
-            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
+            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         else
             bond_index = find_index(BT, "Link,l=$(lid-1)")
-            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
+            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         end
         # absorb singular values into the next site to update to preserve canonicalisation
         left_site_new = U * S
@@ -180,9 +182,9 @@ function decomposeBT(
 
 
         if isnothing(bond_index)
-            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
+            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         else
-            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
+            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         end
         # absorb into next site to be updated 
         left_site_new = U
@@ -746,7 +748,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
             bt_it = unflatten_bt(bt_new, bt_inds)
 
             # decompose the bond tensor using SVD and truncate according to chi_max and cutoff
-            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype)
+            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype, alg=opts.svd_alg)
                 
             # update the caches to reflect the new tensors
             update_caches!(lsn, rsn, LE, RE, j, (j+1), training_states; going_left=true)
@@ -788,7 +790,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
             ) # optimise bond tensor
 
             bt_it = unflatten_bt(bt_new, bt_inds)
-            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=false, dtype=dtype)
+            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=false, dtype=dtype, alg=opts.svd_alg)
             update_caches!(lsn, rsn, LE, RE, j, (j+1), training_states; going_left=false)
             W[j] = lsn
             W[(j+1)] = rsn

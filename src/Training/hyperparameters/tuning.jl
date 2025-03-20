@@ -45,12 +45,30 @@ function make_objective(
         verbosity, pre_string, tstart, nfolds = p
         (train_inds, val_inds) = folds[fold]
         X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-        ti = time()
-        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
-        mps, _... = fitMPS(X_train, y_train, opts);
-        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS $(hparams) finished in $(rtime(ti))s)")
 
-        return mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+        ti=time()
+        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
+        loss = 0
+        try
+            mps, _... = fitMPS(X_train, y_train, opts);
+            train_time = time()
+
+            loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+            verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
+        
+        catch e # handle scd algorithm diverging
+            if e isa LoadError || e isa ArgumentError
+                if opts.svd_alg == "recursive"
+                    loss = Inf64
+                else
+                    println(pre_string, "iter $iters, cvfold $fold: MPS $(hparams)...) diverged, retrying with slower SVD algorithm")
+                    loss = cvloss(fold, hparams, _set_options(opts; svd_alg="recursive"), p)
+                end
+            else
+                throw(e)
+            end
+        end
+        return loss
     end
 
     function tr_objective(optslist::AbstractVector, p)
@@ -69,24 +87,11 @@ function make_objective(
             
             if distribute_folds
                 losses = pmap(fold->cvloss(fold, hparams, opts, p), pool, 1:nfolds)
-                loss = mean(losses)
             else
-                loss = 0
-                for (fold, (train_inds, val_inds)) in enumerate(folds)
-                    X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-
-                    ti=time()
-                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
-                    mps, _... = fitMPS(X_train, y_train, opts);
-                    train_time = time()
-
-                    loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
-                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
-
-                end
-                loss /= nfolds
+                losses = map(fold->cvloss(fold, hparams, opts, p), 1:nfolds)
             end
-            
+            loss = mean(losses)
+
             
             cache[key] = loss
             verbosity >= 1 && println(pre_string, "iter $iters, t=$(rtime(tstart)): Mean CV Loss: $loss")
