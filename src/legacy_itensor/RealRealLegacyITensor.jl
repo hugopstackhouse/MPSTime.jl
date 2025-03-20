@@ -168,7 +168,7 @@ function fitMPS_IT(
 
     training_states = training_states_meta.timeseries
     testing_states = testing_states_meta.timeseries
-    sites = siteinds(W)
+    sites = get_siteinds(W)
 
     if opts.encode_classes_separately && !opts.train_classes_separately
         @warn "Classes are encoded separately, but not trained separately"

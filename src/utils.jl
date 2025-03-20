@@ -349,7 +349,7 @@ function find_label(W::MPS; lstr="f(x)")
             return pos, label_idx
         end
     end
-    @warn "find_label did not find a label index!"
+    # @warn "find_label did not find a label index!"
     return nothing, nothing
 end
 
@@ -369,19 +369,17 @@ function expand_label_index(mps::MPS; lstr="f(x)")
     return Vector{MPS}(weights_by_class), l_ind
 end
 
-function saveMPS(mps::MPS, path::String; id::String="W")
-    """Saves an MPS as a .h5 file"""
-    file = path[end-2:end] == ".h5" ? path[1:end-3] : path
-    f = h5open("$file.h5", "w")
-    write(f, id, mps)
-    close(f)
-    println("Succesfully saved mps $id at $file.h5")
-end
+
 
 function get_siteinds(W::MPS)
-    W1 = deepcopy(W)
-    pos, label_idx = find_label(W1)
-    W1[pos] *= onehot(label_idx => 1) # eliminate label index
+    pos, label_idx = find_label(W)
 
-    return siteinds(W1)
+    if isnothing(pos)
+        return siteinds(W)
+    else
+        W1 = deepcopy(W)
+        W1[pos] *= onehot(label_idx => 1) # eliminate label index
+
+        return siteinds(W1)
+    end
 end

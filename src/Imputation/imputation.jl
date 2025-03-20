@@ -280,7 +280,7 @@ function get_predictions(
     target_timeseries[missing_sites] .= mean(X_train[:]) # make it impossible for the unknown region to be used, even accidentally
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
 
-    sites = siteinds(mps)
+    sites = get_siteinds(mps)
     target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
     pred_err = []
@@ -454,7 +454,7 @@ function MPS_impute(
 
     mps = imp.mpss[imp.class_map[class]]
     chi_mps = maxlinkdim(mps)
-    d_mps = siteinds(mps)[1] |> ITensors.dim
+    d_mps = get_siteinds(mps)[1] |> ITensors.dim
     enc_name = imp.opts.encoding.name
 
     ts, pred_err, target = get_predictions(imp, class, instance, missing_sites, method; invert_transform=invert_transform, impute_order=impute_order, kwargs...)
@@ -562,7 +562,7 @@ function get_cdfs(
     target_timeseries[missing_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
 
-    sites = siteinds(mps)
+    sites = get_siteinds(mps)
     target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
 

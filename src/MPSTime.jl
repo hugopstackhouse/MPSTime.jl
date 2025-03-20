@@ -65,6 +65,9 @@ include("Encodings/basis_structs.jl") # Definition of "Encoding", "Basis", etc
 include("Structs/options.jl") # Options and MPSOptions types, require the "Encoding" type to be defined. Also defines "TrainedMPS", which requires "MPSOptions" to be defined already.
 include("Structs/operations.jl") # includes definitions of "==" and "isapprox" for the custom datatypes.
 
+# Structs for Legacy ITensor
+include("legacy_itensor/Structs/structs.jl") # Old structs defined with ITensor 
+include("legacy_itensor/Structs/operations.jl") # Operations like '==' and 'approx' on old ITensor based structs
 
 # Functions and structs used to define basis functions / encodings
 include("Encodings/encodings.jl")
@@ -85,9 +88,8 @@ include("Training/loss_functions.jl") # Where loss functions and the LossFunctio
 include("Training/RealRealHighDimension.jl") # The training algorithm, fitMPS and co
 
 # Legacy ITensor Implementation
-include("legacy_itensor/Structs/structs.jl") # Old structs defined with ITensor 
-include("legacy_itensor/Structs/operations.jl") # Operations like '==' and 'approx' on old ITensor based structs
 include("legacy_itensor/loss_functions.jl") # Loss functions for ITensor based encoding
+include("legacy_itensor/summary.jl") # 
 include("legacy_itensor/RealRealLegacyITensor.jl") # Legacy fitmps
 
 

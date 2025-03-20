@@ -55,7 +55,7 @@ function construct_caches(
     # get the number of MPS sites
     N = length(W)
 
-    sinds = siteinds(W)
+    sinds = get_siteinds(W)
     linds = linkinds(W)
 
     # pre-allocate left and right environment matrices 
@@ -561,8 +561,8 @@ function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta:
 
     training_states = training_states_meta.timeseries
 
-    @assert opts.d == ITensors.dim(siteinds(training_states[1].pstate)[1]) "Dimension of site indices must match feature map dimension"
-    sites = siteinds(training_states[1].pstate)
+    @assert opts.d == ITensors.dim(get_siteinds(training_states[1].pstate)[1]) "Dimension of site indices must match feature map dimension"
+    sites = get_siteinds(training_states[1].pstate)
 
     # generate the starting MPS with unfirom bond dimension chi_init and random values (with seed if provided)
     num_classes = length(unique([ps.label for ps in training_states]))
@@ -602,7 +602,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
     training_states = training_states_meta.timeseries
     testing_states = testing_states_meta.timeseries
-    sites = siteinds(W)
+    sites = get_siteinds(W)
 
     if opts.encode_classes_separately && !opts.train_classes_separately
         @warn "Classes are encoded separately, but not trained separately"
@@ -650,8 +650,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     if opts.log_level > 0
 
         # compute initial training and validation acc/loss
-        init_train_loss, init_train_acc = MSE_loss_acc(W, training_states)
-        train_KL_div = KL_div(W, training_states)
+        init_train_loss, train_KL_div, init_train_acc = MSE_loss_acc(W, training_states)
         
         push!(training_information["train_loss"], init_train_loss)
         push!(training_information["train_acc"], init_train_acc)
@@ -660,8 +659,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
 
         if has_test 
-            init_test_loss, init_test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-            init_KL_div = KL_div(W, testing_states)
+            init_test_loss, init_KL_div, init_test_acc, conf = MSE_loss_acc_conf(W, testing_states)
 
             push!(training_information["test_loss"], init_test_loss)
             push!(training_information["test_acc"], init_test_acc)
@@ -722,8 +720,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
         verbosity > -1 && println("Starting backward sweeep: [$itS/$nsweeps]")
-        sinds = siteinds(W)
-        sinds[end] = inds(W[end])[2]
+        sinds = get_siteinds(W)
         for j = (length(sites)-1):-1:1
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=true) 
@@ -809,8 +806,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         if opts.log_level > 0
 
             # compute the loss and acc on both training and validation sets
-            train_loss, train_acc = MSE_loss_acc(W, training_states)
-            train_KL_div = KL_div(W, training_states)
+            train_loss, train_KL_div, train_acc = MSE_loss_acc(W, training_states)
 
 
             push!(training_information["train_loss"], train_loss)
@@ -820,8 +816,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
 
             if has_test 
-                test_loss, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-                test_KL_div = KL_div(W, testing_states)
+                test_loss, test_KL_div, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
         
                 push!(training_information["test_loss"], test_loss)
                 push!(training_information["test_acc"], test_acc)
@@ -852,8 +847,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     if opts.log_level > 0
 
         # compute the loss and acc on both training and validation sets
-        train_loss, train_acc = MSE_loss_acc(W, training_states)
-        train_KL_div = KL_div(W, training_states)
+        train_loss, train_KL_div, train_acc = MSE_loss_acc(W, training_states)
 
 
         push!(training_information["train_loss"], train_loss)
@@ -863,8 +857,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
 
         if has_test 
-            test_loss, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-            test_KL_div = KL_div(W, testing_states)
+            test_loss, test_KL_div, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
 
             push!(training_information["test_loss"], test_loss)
             push!(training_information["test_acc"], test_acc)
