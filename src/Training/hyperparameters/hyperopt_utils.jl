@@ -2,6 +2,18 @@ abstract type TuningLoss end
 struct ClassificationLoss <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 
+struct MPSRandomSearch
+    sampling::Symbol
+
+    function MPSRandomSearch(sampling::Symbol=:LatinHypercube)
+        if sampling in [:LatinHypercube, :UniformRandom, :Exhaustive]
+            return new(sampling)
+        else
+            throw(ArgumentError("Unknown sampling type, expected :LatinHypercube, :UniformRandom, or :Exhaustive"))
+        end
+    end
+end
+
 
 function divide_procs(workers, nfolds)
     nprocs = length(workers)
@@ -62,7 +74,7 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
         end
         return [mar(collect(1.:ts_length), pm; rng=rng)[2] for pm in pms]
     else
-        throw(ArgumentError("Must specify either windows or pms!"))
+        throw(ArgumentError("Cannot specifiy both windows and pms!"))
         return []
     end
 end
@@ -71,6 +83,11 @@ end
 function rtime(tstart::Float64)
 
     return round(time() - tstart; digits=2)
+end
+
+function rtime(tstart::Float64, tend::Float64)
+
+    return round(tend - tstart; digits=2)
 end
 
 
@@ -86,7 +103,8 @@ function eval_loss(
     y_val::AbstractVector, 
     windows::Union{Nothing, AbstractVector}=nothing;
     p_fold::Union{Nothing, Tuple}=nothing,
-    distribute::Bool=false
+    distribute::Bool=false,
+    method::Symbol=:median
     )
     
     if ~isnothing(p_fold)
@@ -111,7 +129,7 @@ function eval_loss(
             ws = Vector{Float64}(undef, length(windows))
             for (iw, impute_sites) in enumerate(windows)
                 # impute_sites = mar(X_val[inst, :], p)[2]
-                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
+                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, method; NN_baseline=false, plot_fits=false)[4]
                 ws[iw] = stats[1][:MAE]
             end
             logging && println("done ($(rtime(t))s)")
@@ -125,7 +143,7 @@ function eval_loss(
             t = time()
             for (iw, impute_sites) in enumerate(windows)
                 # impute_sites = mar(X_val[inst, :], p)[2]
-                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
+                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, method; NN_baseline=false, plot_fits=false)[4]
                 instance_scores[inst, iw] = stats[1][:MAE]
             end
             logging && println("done ($(rtime(t))s)")

@@ -3,6 +3,7 @@ const PCache = Matrix{Vector}
 const PCacheCol = AbstractVector{Vector} # for view mapping shenanigans
 const Maybe{T} = Union{T,Nothing} 
 const BondTensor = Matrix
+
 # value types
 struct TrainSeparate{Bool} end # value type to determine whether training is together or separate
 struct EncodeSeparate{Bool} end # value type for dispatching on whether to encode classes separately

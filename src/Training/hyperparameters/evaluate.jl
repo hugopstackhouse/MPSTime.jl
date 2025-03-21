@@ -88,7 +88,11 @@ function evaluate(
             kwargs...
         )
         # @show best_params
-        opts = _set_options(opts0; best_params...)
+        if best_params isa AbstractMPSOptions
+            opts = best_params
+        else
+            opts = _set_options(opts0; best_params...)
+        end
         verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with $(best_params)... ")
         mps, _... = fitMPS(X_train, y_train, opts);
         println(" done")

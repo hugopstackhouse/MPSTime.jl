@@ -45,11 +45,30 @@ function make_objective(
         verbosity, pre_string, tstart, nfolds = p
         (train_inds, val_inds) = folds[fold]
         X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-        ti = time()
-        mps, _... = fitMPS(X_train, y_train, opts);
-        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)... (done in $(rtime(ti))s)")
 
-        return mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+        ti=time()
+        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
+        loss = 0
+        try
+            mps, _... = fitMPS(X_train, y_train, opts);
+            train_time = time()
+
+            loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+            verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
+        
+        catch e # handle scd algorithm diverging
+            if e isa LoadError || e isa ArgumentError
+                if opts.svd_alg == "recursive"
+                    loss = Inf64
+                else
+                    println(pre_string, "iter $iters, cvfold $fold: MPS $(hparams)...) diverged, retrying with slower SVD algorithm")
+                    loss = cvloss(fold, hparams, _set_options(opts; svd_alg="recursive"), p)
+                end
+            else
+                throw(e)
+            end
+        end
+        return loss
     end
 
     function tr_objective(optslist::AbstractVector, p)
@@ -68,25 +87,14 @@ function make_objective(
             
             if distribute_folds
                 losses = pmap(fold->cvloss(fold, hparams, opts, p), pool, 1:nfolds)
-                loss = mean(losses)
             else
-                loss = 0
-                for (fold, (train_inds, val_inds)) in enumerate(folds)
-                    X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
-
-                    ti=time()
-                    mps, _... = fitMPS(X_train, y_train, opts);
-                    verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)... (done in $(rtime(ti))s)")
-
-
-                    loss += mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
-                end
-                loss /= nfolds
+                losses = map(fold->cvloss(fold, hparams, opts, p), 1:nfolds)
             end
-            
+            loss = mean(losses)
+
             
             cache[key] = loss
-            verbosity >= 1 && println(pre_string, "t=$(rtime(tstart)): Mean CV Loss: $loss")
+            verbosity >= 1 && println(pre_string, "iter $iters, t=$(rtime(tstart)): Mean CV Loss: $loss")
         end
         return loss
     end
@@ -95,6 +103,7 @@ function make_objective(
 end
 
 function tune_across_folds(
+    rng::AbstractRNG,
     folds::AbstractVector, 
     parameter_info::Tuple,
     tuning_settings::Tuple,
@@ -117,18 +126,25 @@ function tune_across_folds(
         return NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
     end
 
-
-    x0_adj = provide_x0 ? x0 : nothing
-    obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
-    if bounded
-        prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
+    if method isa MPSRandomSearch
+        sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, maxiters)
+        optslist_safe = safe_params(sol)
     else
-        prob = OptimizationProblem(obj, x0_adj, p; int=is_disc)
-    end
-    sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
 
-    verbosity >= 5 && print(sol)
-    optslist_safe = safe_params(sol.u)
+        x0_adj = provide_x0 ? x0 : nothing
+        obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
+        if bounded
+            prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
+        else
+            prob = OptimizationProblem(obj, x0_adj, p; int=is_disc)
+        end
+        sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
+        verbosity >= 5 && print(sol)
+        optslist_safe = safe_params(sol.u)
+    end
+
+
+
     best_params = NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
     return best_params, cache
 
@@ -185,8 +201,12 @@ function tune(
         pre_string::String=""
 
     )
+    if isempty(parameters) || nfolds == 0 || maxiters == 0
+        return opts0, Dict()
+    end
     # basic checks    
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
+
 
     if !(length(unique(keys(parameters))) == length(keys(parameters)))
        throw(ArgumentError("The 'parameters' argument contains duplicates!")) 
@@ -258,7 +278,7 @@ function tune(
     end
 
 
-    return tune_across_folds(folds, parameter_info, tuning_settings, X, y, tstart)
+    return tune_across_folds(abs_rng, folds, parameter_info, tuning_settings, X, y, tstart)
 
 end
 

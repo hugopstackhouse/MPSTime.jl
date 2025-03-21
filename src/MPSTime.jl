@@ -2,7 +2,7 @@ module MPSTime
 
 # Import these two libraries First and in this order
 using GenericLinearAlgebra
-using MKL
+# using MKL (Banished for crimes)
 
 using LinearAlgebra # low level blas algorithms
 using Strided # strided array support
@@ -25,6 +25,7 @@ using Normalization # Standardised normalisation by Brendan :). Used to do the p
 # Libraries for hyperparmeter tuning
 using Optimization
 using OptimizationOptimJL
+import LatinHypercubeSampling as LHS # for random search
 import MLJBase
 
 
@@ -64,6 +65,9 @@ include("Encodings/basis_structs.jl") # Definition of "Encoding", "Basis", etc
 include("Structs/options.jl") # Options and MPSOptions types, require the "Encoding" type to be defined. Also defines "TrainedMPS", which requires "MPSOptions" to be defined already.
 include("Structs/operations.jl") # includes definitions of "==" and "isapprox" for the custom datatypes.
 
+# Structs for Legacy ITensor
+include("legacy_itensor/Structs/structs.jl") # Old structs defined with ITensor 
+include("legacy_itensor/Structs/operations.jl") # Operations like '==' and 'approx' on old ITensor based structs
 
 # Functions and structs used to define basis functions / encodings
 include("Encodings/encodings.jl")
@@ -81,7 +85,13 @@ include("Vis/vis_encodings.jl")
 include("Analysis/analyse.jl")
 
 include("Training/loss_functions.jl") # Where loss functions and the LossFunction type are defined
-include("Training/RealRealHighDimension.jl"); # The training algorithm, fitMPS and co
+include("Training/RealRealHighDimension.jl") # The training algorithm, fitMPS and co
+
+# Legacy ITensor Implementation
+include("legacy_itensor/loss_functions.jl") # Loss functions for ITensor based encoding
+include("legacy_itensor/summary.jl") # 
+include("legacy_itensor/RealRealLegacyITensor.jl") # Legacy fitmps
+
 
 # Imputation
 include("Imputation/imputation.jl") # Some structs, and scaffolds for setting up and solving ImpuationProblems
@@ -96,7 +106,7 @@ include("Simulation/toy_data.jl"); # functions to simulate synthetic data
 
 # hyperparameter tuning
 include("Training/hyperparameters/hyperopt_utils.jl")
-# include("Training/hyperparameters/gridsearch.jl")
+include("Training/hyperparameters/gridsearch.jl")
 include("Training/hyperparameters/tuning.jl")
 include("Training/hyperparameters/evaluate.jl")
 
@@ -160,6 +170,7 @@ export
     eval_loss,
     ImputationLoss,
     ClassificationLoss,
+    MPSRandomSearch,
     # MLJ 
     MPSClassifier
 end

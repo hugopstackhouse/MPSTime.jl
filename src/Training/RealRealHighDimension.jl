@@ -42,7 +42,12 @@ end
 
 
 
-function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_left=true, dtype::DataType=ComplexF64)
+function construct_caches(
+        W::MPS, 
+        training_pstates::TimeSeriesIterable; 
+        going_left=true, 
+        dtype::DataType=ComplexF64
+    )
     """Function to pre-compute tensor contractions between the MPS and the product states. """
 
     # get the num of training samples to pre-allocate a caching matrix
@@ -50,7 +55,7 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
     # get the number of MPS sites
     N = length(W)
 
-    sinds = siteinds(W)
+    sinds = get_siteinds(W)
     linds = linkinds(W)
 
     # pre-allocate left and right environment matrices 
@@ -99,8 +104,16 @@ end
 
 
 
-function update_caches!(left_site_new::ITensor, right_site_new::ITensor, 
-    LE::PCache, RE::PCache, lid::Int, rid::Int, training_pstates::TimeSeriesIterable; going_left::Bool=true)
+function update_caches!(
+        left_site_new::ITensor, 
+        right_site_new::ITensor, 
+        LE::PCache, 
+        RE::PCache, 
+        lid::Int, 
+        rid::Int, 
+        training_pstates::TimeSeriesIterable; 
+        going_left::Bool=true
+    )
     """Given a newly updated bond tensor, update the caches."""
     num_train = length(training_pstates)
     num_sites = size(LE)[1]
@@ -130,65 +143,16 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
 
 end
 
-
-function decomposeBT(BT::ITensor, lid::Int, rid::Int; 
-    chi_max=nothing, cutoff=nothing, going_left=true, dtype::DataType=ComplexF64)
-    """Decompose an updated bond tensor back into two tensors using SVD"""
-
-
-
-    if going_left
-        left_site_index = find_index(BT, "n=$lid")
-        label_idx = find_index(BT, "f(x)")
-        # need to make sure the label index is transferred to the next site to be updated
-        if lid == 1
-            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
-        else
-            bond_index = find_index(BT, "Link,l=$(lid-1)")
-            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
-        end
-        # absorb singular values into the next site to update to preserve canonicalisation
-        left_site_new = U * S
-        right_site_new = V
-        # fix tag names 
-        replacetags!(left_site_new, "Link,v", "Link,l=$lid")
-        replacetags!(right_site_new, "Link,v", "Link,l=$lid")
-    else
-        # going right, label index automatically moves to the next site
-        right_site_index = find_index(BT, "n=$rid")
-        label_idx = find_index(BT, "f(x)")
-        bond_index = find_index(BT, "Link,l=$(lid+1)")
-
-
-        if isnothing(bond_index)
-            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
-        else
-            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
-        end
-        # absorb into next site to be updated 
-        left_site_new = U
-        right_site_new = V * S
-        # fix tag names 
-        replacetags!(left_site_new, "Link,v", "Link,l=$lid")
-        replacetags!(right_site_new, "Link,v", "Link,l=$lid")
-        # @show inds(left_site_new)
-        # @show inds(right_site_new)
-
-    end
-
-
-    return left_site_new, right_site_new
-
-end
-
 function decomposeBT(
-        BT::BondTensor, 
+        BT::ITensor, 
         lid::Int, 
         rid::Int; 
         chi_max=nothing, 
         cutoff=nothing, 
         going_left=true, 
-        dtype::DataType=ComplexF64
+        dtype::DataType=ComplexF64,
+        alg::String="divide_and_conquer" 
+
     )
     """Decompose an updated bond tensor back into two tensors using SVD"""
 
@@ -199,10 +163,10 @@ function decomposeBT(
         label_idx = find_index(BT, "f(x)")
         # need to make sure the label index is transferred to the next site to be updated
         if lid == 1
-            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
+            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         else
             bond_index = find_index(BT, "Link,l=$(lid-1)")
-            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
+            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         end
         # absorb singular values into the next site to update to preserve canonicalisation
         left_site_new = U * S
@@ -218,9 +182,9 @@ function decomposeBT(
 
 
         if isnothing(bond_index)
-            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
+            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         else
-            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
+            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff, alg=alg)
         end
         # absorb into next site to be updated 
         left_site_new = U
@@ -279,216 +243,11 @@ function unflatten_bt(bt_new, bt_inds)
 end
 
 
-function realise(B::ITensor, C_index::Index{Int64}; dtype::DataType=ComplexF64)
-    """Converts a Complex {s} dimension r itensor into a eal 2x{s} dimension itensor. Increases the rank from rank{s} to 1+ rank{s} by adding a 2-dimensional index "C_index" to the start"""
-    ib = inds(B)
-    inds_c = C_index,ib
-    B_m = Array{dtype}(B, ib)
-
-    out = Array{real(dtype)}(undef, 2,size(B)...)
-    
-    ls = eachslice(out; dims=1)
-    
-    ls[1] = real(B_m)
-    ls[2] = imag(B_m)
-
-    return ITensor(real(dtype), out, inds_c)
-end
-
-
-function complexify(B::ITensor, C_index::Index{Int64}; dtype::DataType=ComplexF64)
-    """Converts a real 2x{s} dimension itensor into a Complex {s} dimension itensor. Reduces the rank from rank{s}+1 to rank{s} by removing the first index"""
-    ib = inds(B)
-    C_index, c_inds... = ib
-    B_ra = NDTensors.array(B, ib) # should return a view
-
-
-    re_part = selectdim(B_ra, 1,1);
-    im_part = selectdim(B_ra, 1,2);
-
-    return ITensor(dtype, complex.(re_part,im_part), c_inds)
-end
-
-
-
-
-
-function loss_grad_enforce_real(tsep::TrainSeparate, BT::ITensor, LE::PCache, RE::PCache,
-    ETSs::EncodedTimeSeriesSet, lid::Int, rid::Int, C_index::Union{Index{Int64},Nothing}; dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD)
-    """Function for computing the loss function and the gradient over all samples using a left and right cache. 
-        Takes a real itensor and will convert it to complex before calling loss_grad if dtype is complex. Returns a real gradient. """
-    
-
-    if isnothing(C_index) # the itensor is real
-        loss, grad = loss_grad(tsep, BT, LE, RE, ETSs, lid, rid)
-    else
-        # pass in a complex itensor
-        BT_c = complexify(BT, C_index; dtype=dtype)
-
-        loss, grad = loss_grad(tsep, BT_c, LE, RE, ETSs, lid, rid)
-
-        grad = realise(grad, C_index; dtype=dtype)
-    end
-
-
-    return loss, grad
-
-end
-
-function loss_grad!(tsep::TrainSeparate, F,G,B_flat::AbstractArray, b_inds::Tuple{Vararg{Index{Int64}}}, LE::PCache, RE::PCache,
-    ETSs::EncodedTimeSeriesSet, lid::Int, rid::Int, C_index::Union{Index{Int64},Nothing}; dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD)
-
-    """Calculates the loss and gradient in a way compatible with Optim. Takes a flat, real array and converts it into an itensor before it passes it loss_grad """
-    BT = itensor(real(dtype), B_flat, b_inds) # convert the bond tensor from a flat array to an itensor
-
-    loss, grad = loss_grad_enforce_real(tsep, BT, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
-
-    if !isnothing(G)
-        G .= NDTensors.array(grad,b_inds)
-    end
-
-    if !isnothing(F)
-        return loss
-    end
-
-end
-
-function custGD(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
-    iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
-    BT = copy(BT_init)
-
-    for i in 1:iters
-        # get the gradient
-        loss, grad = loss_grad(tsep, BT, LE, RE, ETSs, lid, rid)
-        #zygote_gradient_per_batch(bt_old, LE, RE, pss, lid, rid)
-        # update the bond tensor
-        @. BT -= eta * grad
-        if verbosity >=1 && track_cost
-            # get the new loss
-            println("Loss at step $i: $loss")
-        end
-
-    end
-
-    return BT
-end
-
-function TSGO(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
-    iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
-    BT = copy(BT_init) # perhaps not necessary?
-    for i in 1:iters
-        # get the gradient
-        loss, grad = loss_grad(tsep, BT, LE, RE, ETSs, lid, rid)
-        # update the bond tensor   
-        
-        # @show isassigned(Array(grad, inds(grad)))
-        # grad /= norm(grad)
-        # BT .-= eta .* grad
-
-        # BT .-= eta .* (grad / norm(grad))
-
-        # just sidestep itensor completely for this one?
-        #@fastmath map!((x,y)-> x - eta * y / norm(grad), tensor(BT).storage.data, tensor(BT).storage.data,tensor(grad).storage.data )
-        @. BT -= eta * $/(grad, $norm(grad)) #TODO investigate the absolutely bizarre behaviour that happens here with bigfloats if the arithmetic order is changed
-        if verbosity >=1 && track_cost
-            # get the new loss
-            println("Loss at step $i: $loss")
-        end
-
-    end
-    return BT
-end
-
-function apply_update(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int,
-    ETSs::EncodedTimeSeriesSet; iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, bbopt::BBOpt=BBOpt("Optim"),
-    track_cost::Bool=false, eta::Real=0.01, rescale::Tuple{Bool,Bool} = (false, true))
-    """Apply update to bond tensor using the method specified by BBOpt. Will normalise B before and/or after it computes the update B+dB depending on the value of rescale [before::Bool,after::Bool]"""
-
-    iscomplex = !(dtype <: Real)
-
-    if rescale[1]
-        normalize!(BT_init)
-    end
-
-    if bbopt.name == "CustomGD"
-        if uppercase(bbopt.fl) == "GD"
-            BT_new = custGD(tsep, BT_init, LE, RE, lid, rid, ETSs; iters=iters, verbosity=verbosity, dtype=dtype, loss_grad=loss_grad, track_cost=track_cost, eta=eta)
-
-        elseif uppercase(bbopt.fl) == "TSGO"
-            BT_new = TSGO(tsep, BT_init, LE, RE, lid, rid, ETSs; iters=iters, verbosity=verbosity, dtype=dtype, loss_grad=loss_grad, track_cost=track_cost, eta=eta)
-
-        end
-    else
-        # break down the bond tensor to feed into optimkit or optim
-        if iscomplex
-            C_index = Index(2, "C")
-            bt_re = realise(BT_init, C_index; dtype=dtype)
-        else
-            C_index = nothing
-            bt_re = BT_init
-        end
-
-        if bbopt.name == "Optim" 
-             # flatten bond tensor into a vector and get the indices
-            bt_inds = inds(bt_re)
-            bt_flat = NDTensors.array(bt_re, bt_inds) # should return a view
-
-            # create anonymous function to feed into optim, function of bond tensor only
-            fgcustom! = (F,G,B) -> loss_grad!(tsep, F, G, B, bt_inds, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
-            # set the optimisation manfiold
-            # apply optim using specified gradient descent algorithm and corresp. paramters 
-            # set the manifold to either flat, sphere or Stiefel 
-            if bbopt.fl == "CGD"
-                method = Optim.ConjugateGradient(eta=eta)
-            else
-                method = Optim.GradientDescent(alphaguess=eta)
-            end
-            #method = Optim.LBFGS()
-            res = Optim.optimize(Optim.only_fg!(fgcustom!), bt_flat; method=method, iterations = iters, 
-            show_trace = (verbosity >=1),  g_abstol=1e-20)
-            result_flattened = Optim.minimizer(res)
-
-            BT_new = itensor(real(dtype), result_flattened, bt_inds)
-
-
-        elseif bbopt.name == "OptimKit"
-
-            lg = BT -> loss_grad_enforce_real(tsep, BT, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
-            if bbopt.fl == "CGD"
-                alg = OptimKit.ConjugateGradient(; verbosity=verbosity, maxiter=iters)
-            else
-                alg = OptimKit.GradientDescent(; verbosity=verbosity, maxiter=iters)
-            end
-            BT_new, fx, _ = OptimKit.optimize(lg, bt_re, alg)
-
-
-        else
-            error("Unknown Black Box Optimiser $bbopt, options are [CustomGD, Optim, OptimKit]")
-        end
-
-        if iscomplex # convert back to a complex itensor
-            BT_new = complexify(BT_new, C_index; dtype=dtype)
-        end
-    end
-
-    if rescale[2]
-        normalize!(BT_new)
-    end
-
-    if track_cost
-        loss, grad = loss_grad(tsep, BT_new, LE, RE, ETSs, lid, rid)
-        println("Loss at site $lid*$rid: $loss")
-    end
-
-    return BT_new
-
-end
 
 
 # ensure the presence of the DIR value type 
 # This is the intended entrypoint for calls to fitMPS, so input sanitisation can be done here
 # If you call a method further down it's assumed you know what you're doing
-#TODO fix the opts so it isnt such a disaster
 
 
 """
@@ -789,7 +548,12 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
         push!(extra_args, enc_args)
     end
 
-    return [fitMPS(W, training_states, testing_states, opts; test_run=test_run)..., extra_args... ]
+    if opts.use_legacy_ITensor
+        return [fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states, sites), EncodedTimeSeriesSetIT(testing_states, sites), opts, test_run=test_run)..., extra_args... ]
+    else
+        return [fitMPS(W, training_states, testing_states, opts, test_run=test_run)..., extra_args... ]
+    end
+
 end
 
 function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions; test_run=false) # optimise bond tensor)
@@ -799,20 +563,23 @@ function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta:
 
     training_states = training_states_meta.timeseries
 
-    @assert opts.d == ITensors.dim(siteinds(training_states[1].pstate)[1]) "Dimension of site indices must match feature map dimension"
-    sites = siteinds(training_states[1].pstate)
+    @assert opts.d == ITensors.dim(get_siteinds(training_states[1].pstate)[1]) "Dimension of site indices must match feature map dimension"
+    sites = get_siteinds(training_states[1].pstate)
 
     # generate the starting MPS with unfirom bond dimension chi_init and random values (with seed if provided)
     num_classes = length(unique([ps.label for ps in training_states]))
     W = generate_startingMPS(opts.chi_init, sites, num_classes, opts; init_rng=opts.init_rng)
 
-    fitMPS(W, training_states_meta, testing_states_meta, opts, test_run=test_run)
-
+    if opts.use_legacy_ITensor
+        return fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states, sites), EncodedTimeSeriesSetIT(testing_states, sites), opts, test_run=test_run)
+    else
+        return fitMPS(W, training_states, testing_states, opts, test_run=test_run)
+    end
 end
 
 
 
-function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions=Options(); test_run=false) # optimise bond tensor)
+function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions=MPSOptions(); test_run=false) # optimise bond tensor)
      opts = safe_options(opts) # make sure options is abstract
 
 
@@ -824,11 +591,11 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         return W, [], training_states, testing_states, []
     end
 
-    blas_name = GenericLinearAlgebra.LinearAlgebra.BLAS.get_config() |> string
-    if !occursin("mkl", blas_name)
-        @warn "Not using MKL BLAS, which may lead to worse performance.\nTo fix this, Import MPSTime into Julia first or use the MKL package"
-        @show blas_name
-    end
+    # blas_name = GenericLinearAlgebra.LinearAlgebra.BLAS.get_config() |> string
+    # if !occursin("mkl", blas_name)
+    #     @warn "Not using MKL BLAS, which may lead to worse performance.\nTo fix this, Import MPSTime into Julia first or use the MKL package"
+    #     @show blas_name
+    # end
 
     # @unpack_Options opts # unpacks the attributes of opts into the local namespace
     tsep = TrainSeparate{opts.train_classes_separately}() # value type to determine training style
@@ -837,7 +604,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
     training_states = training_states_meta.timeseries
     testing_states = testing_states_meta.timeseries
-    sites = siteinds(W)
+    sites = get_siteinds(W)
 
     if opts.encode_classes_separately && !opts.train_classes_separately
         @warn "Classes are encoded separately, but not trained separately"
@@ -885,8 +652,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     if opts.log_level > 0
 
         # compute initial training and validation acc/loss
-        init_train_loss, init_train_acc = MSE_loss_acc(W, training_states)
-        train_KL_div = KL_div(W, training_states)
+        init_train_loss, train_KL_div, init_train_acc = MSE_loss_acc(W, training_states)
         
         push!(training_information["train_loss"], init_train_loss)
         push!(training_information["train_acc"], init_train_acc)
@@ -895,8 +661,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
 
         if has_test 
-            init_test_loss, init_test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-            init_KL_div = KL_div(W, testing_states)
+            init_test_loss, init_KL_div, init_test_acc, conf = MSE_loss_acc_conf(W, testing_states)
 
             push!(training_information["test_loss"], init_test_loss)
             push!(training_information["test_acc"], init_test_acc)
@@ -957,8 +722,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
         verbosity > -1 && println("Starting backward sweeep: [$itS/$nsweeps]")
-        sinds = siteinds(W)
-        sinds[end] = inds(W[end])[2]
+        sinds = get_siteinds(W)
         for j = (length(sites)-1):-1:1
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=true) 
@@ -984,7 +748,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
             bt_it = unflatten_bt(bt_new, bt_inds)
 
             # decompose the bond tensor using SVD and truncate according to chi_max and cutoff
-            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype)
+            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype, alg=opts.svd_alg)
                 
             # update the caches to reflect the new tensors
             update_caches!(lsn, rsn, LE, RE, j, (j+1), training_states; going_left=true)
@@ -1026,7 +790,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
             ) # optimise bond tensor
 
             bt_it = unflatten_bt(bt_new, bt_inds)
-            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=false, dtype=dtype)
+            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=false, dtype=dtype, alg=opts.svd_alg)
             update_caches!(lsn, rsn, LE, RE, j, (j+1), training_states; going_left=false)
             W[j] = lsn
             W[(j+1)] = rsn
@@ -1044,8 +808,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         if opts.log_level > 0
 
             # compute the loss and acc on both training and validation sets
-            train_loss, train_acc = MSE_loss_acc(W, training_states)
-            train_KL_div = KL_div(W, training_states)
+            train_loss, train_KL_div, train_acc = MSE_loss_acc(W, training_states)
 
 
             push!(training_information["train_loss"], train_loss)
@@ -1055,8 +818,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
 
             if has_test 
-                test_loss, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-                test_KL_div = KL_div(W, testing_states)
+                test_loss, test_KL_div, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
         
                 push!(training_information["test_loss"], test_loss)
                 push!(training_information["test_acc"], test_acc)
@@ -1087,8 +849,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     if opts.log_level > 0
 
         # compute the loss and acc on both training and validation sets
-        train_loss, train_acc = MSE_loss_acc(W, training_states)
-        train_KL_div = KL_div(W, training_states)
+        train_loss, train_KL_div, train_acc = MSE_loss_acc(W, training_states)
 
 
         push!(training_information["train_loss"], train_loss)
@@ -1098,8 +859,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
 
         if has_test 
-            test_loss, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-            test_KL_div = KL_div(W, testing_states)
+            test_loss, test_KL_div, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
 
             push!(training_information["test_loss"], test_loss)
             push!(training_information["test_acc"], test_acc)

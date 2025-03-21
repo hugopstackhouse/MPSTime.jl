@@ -1,9 +1,9 @@
-using Revise
+# using Revise
 using MPSTime
 using JLD2
 using Distributed
-using Optimization
-using OptimizationBBO
+# using Optimization
+# using OptimizationBBO
 using Random
 using OptimizationCMAEvolutionStrategy
 using OptimizationEvolutionary
@@ -15,23 +15,19 @@ using OptimizationOptimJL
 Random.seed!(1)
 
 params = (
-    eta=(-3,1), 
-    d=(2,4),#(10,20), 
-    chi_max=(10,20),#(20,50),
-    nsweeps=(2,8)
-,) 
+    eta=(-3,log10(0.5)), 
+    d=(10,15), 
+    chi_max=(30,60),
+) 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
-e["JULIA_WORKER_TIMEOUT"] = "360"
 
 if nprocs() == 1
-    addprocs(2; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+    addprocs(15; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
 end
 
-@everywhere using Revise, MPSTime, Distributed, Optimization, OptimizationBBO, CMAEvolutionStrategy, OptimizationEvolutionary
-
-@load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
+@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
 
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
@@ -40,39 +36,39 @@ close(rs_f)
 @load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
+Xs = vcat(X_train, X_test)
+ys = ones(Int, size(Xs, 1))
 res = evaluate(
-    vcat(X_train, X_test), 
-    vcat(y_train, y_test), 
+    Xs,
+    ys,
     params,
-    NelderMead(); 
+    MPSRandomSearch(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5, sigmoid_transform=false), 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
     nfolds=30, 
     n_cvfolds=5,
     eval_windows=nothing,#windows_julia,
     eval_pms=[.05],#collect(5:30:95) ./100,#nothing,#collect(5:20:95) ./100,
     fold_inds=[1,10],
     tuning_windows = nothing,
-    tuning_pms=collect(5:60:95) ./100,
+    tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
-    tuning_maxiters=20,
-    verbosity=3,
+    tuning_maxiters=150,
+    verbosity=1,
     foldmethod=folds,
     input_supertype=Float64,
     provide_x0=true,
     logspace_eta=true,
     distribute_folds=true,
     distribute_cvfolds=false,
-    writedir="testruns",
     write=true,
-    collect_tmps=false
+    writedir="IPD_3"
 )
 
-@save "eta_nsweeps.jld2" res
-# 0.20072699080538usi697
+# 0.20072699080538697
 # 0.22382542363624128
 # 0.1972986806310512
-# @save "IPD_rand_150_dontcrash.jld2" res
+# @save "IPD_gen_50_full_no_s.jld2" res
 # 20 iter benchmarks 
 
 

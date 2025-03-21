@@ -45,7 +45,7 @@ function precondition(
         timeseries_enc::MPS,
         imputation_sites::AbstractVector{Int}
     )
-    s = siteinds(class_mps)
+    s = get_siteinds(class_mps)
     known_sites = setdiff(collect(1:length(class_mps)), imputation_sites)
     total_known_sites = length(class_mps)
     total_impute_sites = length(imputation_sites)
@@ -118,7 +118,7 @@ function impute_at!(
         throw(ArgumentError("impute_order must be either \":forwards\" or \":backwards\""))
     end
 
-    s = siteinds(mps)
+    s = get_siteinds(mps)
     errs = zeros(Float64, length(x_samps))#Vector{Float64}(undef, total_known_sites)
     total_impute_sites = length(imputation_sites)
 
@@ -203,7 +203,7 @@ function impute_median(
         timeseries_enc::MPS,
         imputation_sites::Vector{Int};
         impute_order::Symbol=:forwards,
-        get_wmad::Bool=true
+        get_wmad::Bool=false
     )
     
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )
@@ -234,7 +234,7 @@ function impute_mean(
         timeseries_enc::MPS,
         imputation_sites::Vector{Int};
         impute_order::Symbol=:forwards,
-        get_std::Bool=true
+        get_std::Bool=false
     )
     """impute mps sites without respecting time ordering, i.e., 
     condition on all known values first, then impute remaining sites one-by-one.
@@ -366,7 +366,7 @@ function impute_med_and_get_cdf!(
         throw(ArgumentError("impute_order must be either \":forwards\" or \":backwards\""))
     end
 
-    s = siteinds(mps)
+    s = get_siteinds(mps)
     errs = zeros(Float64, length(x_samps))
     total_impute_sites = length(imputation_sites)
 
