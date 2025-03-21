@@ -201,8 +201,12 @@ function tune(
         pre_string::String=""
 
     )
+    if isempty(parameters) || nfolds == 0 || maxiters == 0
+        return opts0, Dict()
+    end
     # basic checks    
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
+
 
     if !(length(unique(keys(parameters))) == length(keys(parameters)))
        throw(ArgumentError("The 'parameters' argument contains duplicates!")) 
