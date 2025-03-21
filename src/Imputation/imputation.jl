@@ -200,7 +200,8 @@ end
 """
 ```Julia
 kNN_impute(imp::ImputationProblem, 
-           class::Any, instance::Integer, 
+           [class::Any,] 
+           instance::Integer, 
            missing_sites::AbstractVector{<:Integer}; 
            k::Integer=1) -> [neighbour1::Vector, neighbour2::Vector, ...]
 ```
@@ -249,7 +250,14 @@ function kNN_impute(
 
 
 end
-
+function kNN_impute(
+        imp::ImputationProblem,
+        instance::Integer, 
+        missing_sites::AbstractVector{<:Integer}; 
+        k::Integer=1
+    )
+    return kNN_impute(imp, 0, instance, missing_sites;k=k)
+end
 
 function get_predictions(
         imp::ImputationProblem,
@@ -311,7 +319,7 @@ function get_predictions(
         end
 
     else
-        error("Invalid method. Choose :mean (Expect/Var), :mode, :median, :kNearestNeighbour, :ITS, et. al")
+        error("Invalid method. Choose :mean, :mode, :median, :kNearestNeighbour, or :ITS")
     end
 
 
@@ -376,6 +384,8 @@ function get_predictions(
 
         target = target_ts_raw
 
+    elseif method == :kNearestNeighbour
+        target = target_ts_raw
     else
         target = target_timeseries_full
     end
@@ -393,7 +403,7 @@ end
 """
 ```Julia
 MPS_impute(imp::ImputationProblem, 
-           class::Any, 
+           [class::Any,] 
            instance::Integer, 
            missing_sites::AbstractVector{<:Integer}, 
            method::Symbol=:median; 
@@ -402,7 +412,7 @@ MPS_impute(imp::ImputationProblem,
 Impute the `missing_sites` using an MPS-based approach, selecting the trajectory from the conditioned distribution with `method`
 
 See [`init_imputation_problem`](@ref) for constructing an `ImputationProblem`` instance out of a trained MPS. The `instance` number is relative to the class, so
-class 1, instance 2 would be distinct from class 2, instance 2. 
+class 1, instance 2 would be distinct from class 2, instance 2.
 
 # Imputation Methods
 - `:median`: For each missing value, compute the probability density function of the possible outcomes from the MPS, and choose the median. This method is the most robust to outliers. Keywords:
@@ -519,6 +529,18 @@ function MPS_impute(
     return ts, pred_err, target, metrics, ps
 end
 
+# classless method
+function MPS_impute(
+        imp::ImputationProblem,
+        instance::Integer, 
+        missing_sites::Vector{Int}, 
+        method::Symbol=:median;
+        kwargs... 
+    )
+
+    return MPS_impute(imp, 0, instance, missing_sites, method; kwargs...)
+
+end
 
 
 """

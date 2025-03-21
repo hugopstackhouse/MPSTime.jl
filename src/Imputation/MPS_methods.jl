@@ -203,7 +203,7 @@ function impute_median(
         timeseries_enc::MPS,
         imputation_sites::Vector{Int};
         impute_order::Symbol=:forwards,
-        get_wmad::Bool=true
+        get_wmad::Bool=false
     )
     
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )
@@ -234,7 +234,7 @@ function impute_mean(
         timeseries_enc::MPS,
         imputation_sites::Vector{Int};
         impute_order::Symbol=:forwards,
-        get_std::Bool=true
+        get_std::Bool=false
     )
     """impute mps sites without respecting time ordering, i.e., 
     condition on all known values first, then impute remaining sites one-by-one.
