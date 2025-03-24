@@ -1,53 +1,48 @@
+# using Revise
 using MPSTime
 using JLD2
-using Distributed
+# using Distributed
 using Optimization
 using OptimizationBBO
 using Random
 # using OptimizationMetaheuristics
-using OptimizationOptimJL
+# using OptimizationOptimJL
 # using OptimizationNLopt
 # using OptimizationOptimisers
 
+fold = parse(Int, ARGS[1])
+
+@assert ENV["OMP_NUM_THREADS"] == "1" "Disable MKL Threading in the job array!"
+
 Random.seed!(1)
-e = copy(ENV)
-e["OMP_NUM_THREADS"] = "1"
-e["JULIA_NUM_THREADS"] = "1"
-
-if nprocs() == 1
-    addprocs(30; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
-end
-@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO, OptimizationOptimJL
-
-@load "test/Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
 
 params = (
     eta=(-3,log10(0.5)), 
-    d=(5,15), 
-    chi_max=(20,40),
+    d=(5, 15), 
+    chi_max=(20, 40),
 ) 
 
 
-rs_f = jldopen("Folds/ECG200/resample_folds_julia_idx.jld2", "r");
-fold_idxs = read(rs_f, "rs_folds_julia");
+rs_f = jldopen("Folds/Kepler/c4_folds_flat.jld2", "r");
+folds = read(rs_f, "folds");
+Xs = read(rs_f, "Xs");
 close(rs_f)
+ys = ones(Int, size(Xs, 1))
 
-@load "Folds/ECG200/windows_julia_idx.jld2" windows_julia
-folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
-
-Xs = vcat(X_train, X_test)
-ys = zeros(Int, size(Xs, 1))
+@load "Folds/Kepler/kepler_windows_julia_idx.jld2" windows_per_percentage
+windows_julia = windows_per_percentage
 res = evaluate(
     Xs,
     ys,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10), 
     nfolds=30, 
     n_cvfolds=5,
+    fold_inds=[fold],
     eval_windows=windows_julia,
-    eval_pms = nothing,#collect(5:10:95) ./100,
+    eval_pms=nothing,#collect(5:20:95) ./100,
     tuning_windows = nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
@@ -57,11 +52,17 @@ res = evaluate(
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
-    distribute_folds=true,
-    writedir="ECG_final",
-    write=true)
+    distribute_folds=false,
+    distribute_cvfolds=false,
+    writedir="KC4_evals_final",
+    write=true,
+    collect_tmps=false
+)
 
-@save "ECG_rand_50_ns_final.jld2" res
+# 0.20072699080538697
+# 0.22382542363624128
+# 0.1972986806310512
+# @save "IPD_rand_50_full.jld2" res
 # 20 iter benchmarks 
 
 

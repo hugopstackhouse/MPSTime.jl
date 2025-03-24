@@ -15,15 +15,15 @@ Random.seed!(1)
 
 params = (
     eta=(-3,log10(0.5)), 
-    d=(10,15), 
-    chi_max=(30,60),
+    d=(5,15), 
+    chi_max=(20,40),
 ) 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 
 if nprocs() == 1
-    addprocs(15; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+    addprocs(30; env=e, exeflags="--heap-size-hint=2G", enable_threaded_blas=false)
 end
 
 @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
@@ -36,7 +36,7 @@ close(rs_f)
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
 Xs = vcat(X_train, X_test)
-ys = ones(Int, size(Xs, 1))
+ys = zeros(Int, size(Xs, 1))
 res = evaluate(
     Xs,
     ys,
@@ -51,7 +51,7 @@ res = evaluate(
     tuning_windows = nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
-    tuning_maxiters=150,
+    tuning_maxiters=250,
     verbosity=1,
     foldmethod=folds,
     input_supertype=Float64,
@@ -60,13 +60,13 @@ res = evaluate(
     distribute_folds=true,
     distribute_cvfolds=false,
     write=true,
-    writedir="IPD_3"
+    writedir="IPD_final"
 )
 
 # 0.20072699080538697
 # 0.22382542363624128
 # 0.1972986806310512
-# @save "IPD_gen_50_full_no_s.jld2" res
+@save "IPD_rand_50_final.jld2" res
 # 20 iter benchmarks 
 
 
