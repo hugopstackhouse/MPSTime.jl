@@ -78,8 +78,9 @@ function grid_search(
     ub::AbstractVector{<:Number}, 
     is_disc::AbstractVector{Bool},
     types::AbstractVector{Type}, 
-    maxiters::Integer;
-    maxrerolls::Integer=100
+    maxiters::Integer,
+    distribute_iters::Bool=true;
+    maxrerolls::Integer=100,
     )
 
     trials = make_grid(rng, method.sampling, lb, ub, is_disc, types, maxiters; maxrerolls=maxrerolls)
@@ -87,13 +88,19 @@ function grid_search(
     losses = Vector{Float64}(undef, length(trials))
     min_ind = -1
     min_loss = Inf64
-    for i in eachindex(trials)
-        losses[i] = objective(trials[i])
-        if losses[i] < min_loss
-            min_loss = losses[i]
-            min_ind = i
+    
+    if distribute_iters
+        losses .= pmap(objective, trials)
+        min_ind = argmin(losses)
+    else
+        for i in eachindex(trials)
+            losses[i] = objective(trials[i])
+            if losses[i] < min_loss
+                min_loss = losses[i]
+                min_ind = i
+            end
         end
     end
-    return trials[min_ind]
 
+    return trials[min_ind]
 end

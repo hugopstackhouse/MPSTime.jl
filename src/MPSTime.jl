@@ -106,7 +106,7 @@ include("Simulation/toy_data.jl"); # functions to simulate synthetic data
 
 # hyperparameter tuning
 include("Training/hyperparameters/hyperopt_utils.jl")
-include("Training/hyperparameters/gridsearch.jl")
+include("Training/hyperparameters/random_search.jl")
 include("Training/hyperparameters/tuning.jl")
 include("Training/hyperparameters/evaluate.jl")
 

@@ -9,7 +9,8 @@ function make_objective(
     X::AbstractMatrix, 
     y::AbstractVector, 
     windows::Union{Nothing, AbstractVector};
-    logspace_eta::Bool=false
+    logspace_eta::Bool=false,
+    caching::Bool=true
     )
 
     fieldnames = Tuple(fields)
@@ -78,7 +79,7 @@ function make_objective(
         optslist_safe = safe_paramlist(optslist; output=verbosity>=3)
         
         key = tuple(optslist_safe...)
-        if haskey(cache, key )
+        if caching && haskey(cache, key )
             verbosity >= 1 && println(pre_string, "iter $iters:Cache hit at $(optslist) -> $(optslist_safe)!")
             loss = cache[key]
         else
@@ -91,9 +92,10 @@ function make_objective(
                 losses = map(fold->cvloss(fold, hparams, opts, p), 1:nfolds)
             end
             loss = mean(losses)
-
             
-            cache[key] = loss
+            if caching
+                cache[key] = loss
+            end
             verbosity >= 1 && println(pre_string, "iter $iters, t=$(rtime(tstart)): Mean CV Loss: $loss")
         end
         return loss
@@ -112,9 +114,9 @@ function tune_across_folds(
     tstart::Real
     )
     x0, opts0, bounded, lb, ub, is_disc, fields, types = parameter_info
-    objective, method, workers, distribute_folds, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
+    objective, method, workers, distribute_folds, distribute_iters, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
 
-    tr_objective, cache, safe_params = make_objective(folds, objective, workers, distribute_folds, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
+    tr_objective, cache, safe_params = make_objective(folds, objective, workers, distribute_folds, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta, caching=~distribute_iters)
     p = (verbosity, pre_string, tstart, nfolds)
 
     # for rapid debugging
@@ -127,10 +129,12 @@ function tune_across_folds(
     end
 
     if method isa MPSRandomSearch
-        sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, maxiters)
+        sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, maxiters, distribute_iters)
         optslist_safe = safe_params(sol)
     else
-
+        if distribute_iters
+            throw(ArgumentError("Can only distribute iterations when using an MPSRandomSearch"))
+        end
         x0_adj = provide_x0 ? x0 : nothing
         obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
         if bounded
@@ -155,7 +159,7 @@ end
         X::AbstractMatrix, 
         y::AbstractVector, 
         parameters::NamedTuple,
-        method=SAMIN(); # bounded simulated annealing from Optim
+        method=MPSRandomSearch()
         opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
         objective::TuningLoss=ImputationLoss(), 
         nfolds::Integer=5,
@@ -180,7 +184,7 @@ function tune(
         X::AbstractMatrix, 
         y::AbstractVector, 
         parameters::NamedTuple,
-        method=SAMIN(); # bounded simulated annealing from Optim
+        method=MPSRandomSearch(); # A latin hypercube based random search
         opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
         input_supertype::Type=Float64,
         enforce_bounds::Bool=true,
@@ -196,6 +200,7 @@ function tune(
         abstol::Float64=1e-3,
         maxiters::Integer=500,
         distribute_folds::Bool=false,
+        distribute_iters::Bool=false,
         workers::AbstractVector{Int}=distribute_folds ? workers() : Int[],
         disable_nondistributed_threading::Bool=false,
         pre_string::String=""
@@ -259,7 +264,7 @@ function tune(
 
 
     parameter_info = x0, opts0, enforce_bounds, lb, ub, is_disc, fields, types
-    tuning_settings = objective, method, workers, distribute_folds, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta
+    tuning_settings = objective, method, workers, distribute_folds, distribute_iters, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
     if nfolds <= 1
         folds = []
