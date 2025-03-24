@@ -1,8 +1,9 @@
+# using Revise
 using MPSTime
 using JLD2
 using Distributed
-using Optimization
-using OptimizationBBO
+# using Optimization
+# using OptimizationBBO
 using Random
 # using OptimizationMetaheuristics
 # using OptimizationOptimJL
@@ -10,73 +11,56 @@ using Random
 # using OptimizationOptimisers
 
 Random.seed!(1)
-@load "test/Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
+@load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
 params = (
-    eta=(-3,1), 
-    d=(10,20), 
-    chi_max=(20,50),
-    nsweeps=(2,8)
-,) 
+    eta=(-3,log10(0.5)), 
+    d=(5,15), 
+    chi_max=(20,40),
+) 
+e = copy(ENV)
+e["OMP_NUM_THREADS"] = "1"
+e["JULIA_NUM_THREADS"] = "1"
 
-addprocs(30; env=["OMP_NUM_THREADS"=>"1", "JULIA_NUM_THREADS"=>"1"], enable_threaded_blas=false)
-@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
+if nprocs() == 1
+    addprocs(15; env=e, exeflags="--heap-size-hint=2G", enable_threaded_blas=false)
+end
 
-rs_f = jldopen("Folds/ECG200/resample_folds_julia_idx.jld2", "r");
+@everywhere using MPSTime, Distributed, Optimization
+
+rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
 close(rs_f)
 
-@load "Folds/ECG200/windows_julia_idx.jld2" windows_julia
+@load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
+Xs = vcat(X_train, X_test)
+ys = zeros(Int, size(Xs, 1))
 res = evaluate(
-    vcat(X_train, X_test), 
-    vcat(y_train, y_test), 
+    Xs,
+    ys,
     params,
-    BBO_random_search(); 
+    MPSRandomSearch(); 
     objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
-    nfolds=30, 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
+    nfolds=1, 
     n_cvfolds=5,
     eval_windows=windows_julia,
-    tuning_windows = vcat(windows_julia[5], windows_julia[75], windows_julia[85], windows_julia[95]),
-    tuning_abstol=1e-3, 
-    tuning_maxiters=100,
+    eval_pms=nothing,#collect(5:20:95) ./100,
+    tuning_windows = nothing,
+    tuning_pms=collect(5:10:95) ./100,
+    tuning_abstol=1e-9, 
+    tuning_maxiters=250,
     verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
-    distribute_folds=true)
-
-@save "ECG_rand_opt.jld2" res
-# 20 iter benchmarks 
-
-
-# SA()
-# t=697.29: training MPS with ((chi_max = 22, d = 2, eta = 1.7493084678516522))...  done
-# t=697.97: Loss 0.17647058823529416
-
-#t=2896, chim 30, d=2, eta=1.26
-# 0.0303
-
-# PSO()
-# retcode: Default
-# u: [20.456448963449063, 9.853361431316502, 3.6032277648473126]
-# Final objective value:     0.02941176470588236
-
-#  retcode: Default
-# u: [20.5526603176487, 9.815468744903043, 3.5211517956867766]
-# Final objective value:     0.02941176470588236
-
-
-# BBO_adaptive_de_rand_1_bin()
-# t=81.99: training MPS with ((chi_max = 29, d = 10, eta = 2.431916965383183))...  done
-# t=88.85: Loss 0.02941176470588236
-
-# u: [20.68733736874209, 7.282024263293762, 3.3227249898786315]
-# Final objective value:     0.02941176470588236
-
-#  retcode: MaxIters
-# u: [21.794199781220755, 8.945887613181625, 0.8267693406424581]
-# Final objective value:     0.030303030303030276
+    distribute_folds=false,
+    distribute_cvfolds=false,
+    distribute_iters=true,
+    distribute_final_eval=true,
+    write=false,
+    writedir="IPD_final"
+)

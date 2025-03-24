@@ -54,7 +54,7 @@ function make_objective(
             mps, _... = fitMPS(X_train, y_train, opts);
             train_time = time()
 
-            loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, pre_string, tstart, fold, nfolds))) # eval_loss always returns an array
+            loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity-1, pre_string * "iter $iters, ", tstart, fold, nfolds))) # eval_loss always returns an array
             verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
         
         catch e # handle scd algorithm diverging
