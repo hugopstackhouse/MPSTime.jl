@@ -23,7 +23,7 @@ e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 
 if nprocs() == 1
-    addprocs(15; env=e, exeflags="--heap-size-hint=2G", enable_threaded_blas=false)
+    addprocs(10; env=e, exeflags="--heap-size-hint=2G", enable_threaded_blas=false)
 end
 
 @everywhere using MPSTime, Distributed, Optimization
@@ -44,20 +44,20 @@ res = evaluate(
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-    nfolds=1, 
+    nfolds=2, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     eval_pms=nothing,#collect(5:20:95) ./100,
     tuning_windows = nothing,
     tuning_pms=collect(5:10:95) ./100,
     tuning_abstol=1e-9, 
-    tuning_maxiters=250,
+    tuning_maxiters=14,
     verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
-    distribute_folds=false,
+    distribute_folds=true,
     distribute_cvfolds=false,
     distribute_iters=true,
     distribute_final_eval=true,
