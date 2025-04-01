@@ -1,5 +1,5 @@
 abstract type TuningLoss end
-struct MisClassificationRate <: TuningLoss end
+struct MisclassificationRate <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 struct BalancedMisclassificationRate <: TuningLoss end
 

@@ -59,7 +59,7 @@ function evaluate(
         if write
             if isfile(fname)
                 println("Fold " * string(fold) * " already exists, skipping...")
-                @load fname res_iter
+                JLD2.@load fname res_iter
                 return res_iter
             end
         end
