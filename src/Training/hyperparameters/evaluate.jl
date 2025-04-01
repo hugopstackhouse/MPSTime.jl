@@ -63,7 +63,10 @@ function evaluate(
         X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
     
         abs_rng_inner = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
-        tuning_windows_inner = make_windows(tuning_windows, tuning_pms, X, abs_rng_inner)
+        tuning_windows_inner = nothing
+        if objective isa ImputationLoss
+            tuning_windows_inner = make_windows(tuning_windows, tuning_pms, X, abs_rng_inner)
+        end
         best_params, cache = tune(
             X_train, 
             y_train, 

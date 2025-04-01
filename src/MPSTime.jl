@@ -169,7 +169,8 @@ export
     is_omp_threading,
     eval_loss,
     ImputationLoss,
-    ClassificationLoss,
+    MisclassificationRate,
+    BalancedMisclassificationRate,
     MPSRandomSearch,
     # MLJ 
     MPSClassifier

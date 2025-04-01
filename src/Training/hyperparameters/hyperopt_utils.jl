@@ -1,6 +1,7 @@
 abstract type TuningLoss end
-struct ClassificationLoss <: TuningLoss end
+struct MisClassificationRate <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
+struct BalancedMisclassificationRate <: TuningLoss end
 
 struct MPSRandomSearch
     sampling::Symbol
@@ -90,9 +91,25 @@ function rtime(tstart::Float64, tend::Float64)
     return round(tend - tstart; digits=2)
 end
 
+function eval_loss(::BalancedMisclassificationRate, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing, distribute::Bool=false)
+    recall_sum = 0
+    y_pred = classify(mps, X_val)
+    classes = unique(vcat(y_val, y_pred))
 
+    for cls in classes
+        tp = sum((y_val .== cls) .& (y_pred .== cls))
+        fn = sum((y_val .== cls) .& (y_pred .!= cls))
+        recall = tp / (tp + fn + eps())
+        recall_sum += recall
+    end
 
-function eval_loss(::ClassificationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing, distribute::Bool=false)
+    bal_acc = recall_sum / length(classes)
+    
+    return [1. - bal_acc]
+
+end
+
+function eval_loss(::MisclassificationRate, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing, distribute::Bool=false)
     return [1. - mean(classify(mps, X_val) .== y_val)] # misclassification rate, vector for type stability
 end
 
