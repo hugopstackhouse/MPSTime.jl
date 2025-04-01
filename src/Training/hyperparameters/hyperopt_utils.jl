@@ -16,6 +16,21 @@ struct MPSRandomSearch
 end
 
 
+function rtime(tstart::Float64)
+
+    return round(time() - tstart; digits=2)
+end
+
+function rtime(tstart::Float64, tend::Float64)
+
+    return round(tend - tstart; digits=2)
+end
+
+function is_omp_threading()
+    return "OMP_NUM_THREADS" in keys(ENV) && ENV["OMP_NUM_THREADS"] == "1"
+end
+
+
 function divide_procs(workers, nfolds)
     nprocs = length(workers)
     i = 1
@@ -80,16 +95,6 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
     end
 end
 
-
-function rtime(tstart::Float64)
-
-    return round(time() - tstart; digits=2)
-end
-
-function rtime(tstart::Float64, tend::Float64)
-
-    return round(tend - tstart; digits=2)
-end
 
 function eval_loss(::BalancedMisclassificationRate, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing, distribute::Bool=false)
     recall_sum = 0

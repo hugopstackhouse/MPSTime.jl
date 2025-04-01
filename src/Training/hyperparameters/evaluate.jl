@@ -1,10 +1,3 @@
-function is_omp_threading()
-    return "OMP_NUM_THREADS" in keys(ENV) && ENV["OMP_NUM_THREADS"] == "1"
-end
-
-
-
-
 function evaluate(
     X::AbstractMatrix, 
     y::AbstractVector, 
@@ -53,10 +46,24 @@ function evaluate(
     end
     outfile = strip(writedir, '/') * "/" * strip(simname, '/') * ".jld2"
     tmpdir = strip(writedir, '/') * "/" * strip(simname, '/') * "_tmp/"
-    mkpath(tmpdir)
+
+    if write
+        mkpath(tmpdir)
+    end
+
     tstart = time()
     function _eval_fold(fold, cv_workers=Int[])
         Random.seed!(fold)
+        fname = tmpdir * "f" * string(fold) * ".jld2"
+
+        if write
+            if isfile(fname)
+                println("Fold " * string(fold) * " already exists, skipping...")
+                @load fname res_iter
+                return res_iter
+            end
+        end
+
         println("Beginning fold $fold:")
         tbeg = time()
         (train_inds, test_inds) = folds[fold]
@@ -117,7 +124,8 @@ function evaluate(
         )
         mps, X_train, X_test, y_train, y_test = nothing, nothing, nothing, nothing, nothing # attempt to force garbage collection - probably does nothing
         if write
-            @save (tmpdir * "f" * string(fold) * ".jld2") res_iter
+            @save fname res_iter
+            println("saved fold at $fname")
         end
         return res_iter
     end
@@ -148,6 +156,7 @@ function evaluate(
     if write && collect_tmps
         @save outfile res
         rm(tmpdir; recursive=true)
+        println("Results saved to $outfile")
     end
     return res
 end
