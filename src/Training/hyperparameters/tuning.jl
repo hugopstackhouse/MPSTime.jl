@@ -4,8 +4,8 @@ function make_objective(
     workers::AbstractVector,
     distribute_folds::Bool,
     opts0::AbstractMPSOptions, 
-    fields::Vector{Symbol}, 
-    types::Vector{Type},
+    fields::AbstractVector{Symbol}, 
+    types::AbstractVector{<:Type},
     X::AbstractMatrix, 
     y::AbstractVector, 
     windows::Union{Nothing, AbstractVector};
@@ -129,7 +129,7 @@ function tune_across_folds(
     end
 
     if method isa MPSRandomSearch
-        sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, maxiters, distribute_iters)
+        sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, fields, maxiters, distribute_iters)
         optslist_safe = safe_params(sol)
     else
         if distribute_iters

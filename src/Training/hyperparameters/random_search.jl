@@ -4,7 +4,7 @@ function make_grid(
     lb::AbstractVector{N}, 
     ub::AbstractVector{N}, 
     is_disc::AbstractVector{Bool},
-    types::AbstractVector{Type}, 
+    types::AbstractVector{<:Type}, 
     maxiters::Integer;
     maxrerolls::Integer=100
     ) where N <: Number
@@ -69,6 +69,22 @@ function make_grid(
     end
 end
 
+function make_shorter_benchmark(fields::AbstractVector{Symbol})
+    # An approximate measure of which benchmark will take longest based on chi_max * d
+    chi_or_d = findall(name -> name == :chi_max || name == :d, fields)
+
+    if isempty(chi_or_d)
+
+        return (_,__) -> false
+
+    else
+        function shorter_benchmark(b1::AbstractVector, b2::AbstractVector)
+            return prod(b1[chi_or_d]) < prod(b2[chi_or_d])
+        end
+
+        return shorter_benchmark
+    end
+end
 
 function grid_search(
     rng::AbstractRNG,
@@ -78,12 +94,18 @@ function grid_search(
     ub::AbstractVector{<:Number}, 
     is_disc::AbstractVector{Bool},
     types::AbstractVector{Type}, 
+    fields::AbstractVector{Symbol},
     maxiters::Integer,
     distribute_iters::Bool=true;
     maxrerolls::Integer=100,
     )
 
     trials = make_grid(rng, method.sampling, lb, ub, is_disc, types, maxiters; maxrerolls=maxrerolls)
+
+    # sort grid so that slow evaluations run first - efficiency increase for distribute_iters
+    less_than =  make_shorter_benchmark(fields)
+    sort!(trials, lt=less_than, rev=true)
+
 
     losses = Vector{Float64}(undef, length(trials))
     min_ind = -1
