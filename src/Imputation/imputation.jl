@@ -309,7 +309,7 @@ function get_predictions(
     elseif method == :ITS
         ts = impute_ITS(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, missing_sites; impute_order=impute_order, kwargs...)
 
-    elseif method ==:kNearestNeighbour
+    elseif method == :kNearestNeighbour
         ts = kNN_impute(imp, class, instance, missing_sites; kwargs...)
 
         if !invert_transform
@@ -318,12 +318,21 @@ function get_predictions(
             end
         end
 
+    elseif method == :flatBaseline
+        ts = deepcopy(target_ts_raw)
+        ts[missing_sites] .= mean(X_train)
+        ts = [ts]
+        if !invert_transform
+            for i in eachindex(ts)
+                ts[i], _ = transform_test_data(ts[i], norms; opts=imp.opts)
+            end
+        end
     else
-        error("Invalid method. Choose :mean, :mode, :median, :kNearestNeighbour, or :ITS")
+        error("Invalid method. Choose :mean, :mode, :median, :kNearestNeighbour, :flatBaseline or :ITS")
     end
 
 
-    if invert_transform && !(method == :kNearestNeighbour)
+    if invert_transform && !(method in [:kNearestNeighbour, :flatBaseline])
         if !isempty(pred_err)
             for i in eachindex(ts)
                 pred_err[i] .+=  ts[i] # add the time-series, so nonlinear rescaling is reversed correctly
@@ -384,7 +393,7 @@ function get_predictions(
 
         target = target_ts_raw
 
-    elseif method == :kNearestNeighbour
+    elseif method in [:kNearestNeighbour, :flatBaseline]
         target = target_ts_raw
     else
         target = target_timeseries_full
@@ -436,6 +445,8 @@ class 1, instance 2 would be distinct from class 2, instance 2.
 
 - `:kNearestNeighbour`: Select the `k` nearest neighbours in the training set using Euclidean distance to the known data. Keyword:
     * `k`: Number of nearest neighbours to return. See [`kNN_impute`](@ref)
+
+- `flatBaseline:` Predict the missing values are just the mean of the training set.
 
 # Keyword Arguments
 - `impute_order::Symbol=:forwards`: Whether to impute the missing values `:forwards` (left to right) or `:backwards` (right to left)
