@@ -15,17 +15,17 @@ params = (
     chi_max=(15,45),
     nsweeps=(1,10)
 ,) 
-
+nfolds = 5
 
 
 res = tune(
     X_train, 
     y_train, 
+    nfolds,
     params,
     SAMIN(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
-    nfolds=5, 
     pms=[0.05, 0.9],
     abstol=1e-3, 
     maxiters=3,

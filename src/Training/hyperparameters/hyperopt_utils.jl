@@ -3,6 +3,19 @@ struct MisclassificationRate <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 struct BalancedMisclassificationRate <: TuningLoss end
 
+"""
+```Julia
+    MPSRandomSearch(sampling::Symbol=:LatinHypercube)
+```
+Value type used to specify a random search algorithm for [`hyperparameter tuning`](@ref MPSTime.tune) an MPS. 
+
+`Sampling` Specifies the method used to determine the search space. The supported sampling methods are 
+- `:LatinHypercube`: An implementation of [`LatinHypercubeSampling.jl`](https://www.juliapackages.com/p/latinhypercubesampling)'s random (pseudo-) Latin Hypercube\
+search space generator. Supports both discrete and continuous hyperparameters.
+- `:UniformRandom`: Generate a search space by randomly sampling from the interval [lower bound, upper bound] for each hyperparameter. Supports both discrete and\
+continuous hyperparameters.
+- `Exhaustive`: Perform an exhaustive gridsearch of all hyperparameters within the lower and upper bounds. Only supports discrete hyperparameters. Not actually a random search.  
+"""
 struct MPSRandomSearch
     sampling::Symbol
 
@@ -44,24 +57,25 @@ function divide_procs(workers, nfolds)
     return split
 end
 
-function make_folds(X::AbstractMatrix, k::Int; rng::Union{Nothing, AbstractRNG}=nothing)
-    if isnothing(rng)
-        rng = Xoshiro()
-    end
-    ninstances = size(X, 1)
-    X_idxs = randperm(rng, ninstances)
-    # split into k folds
-    fold_size = ceil(Int, ninstances/k)
-    all_folds = [X_idxs[(i-1)*fold_size+1 : min(i*fold_size, ninstances)] for i in 1:k]
-    # build pairs
-    X_train_idxs = Vector{Vector{Int}}(undef, k)
-    X_val_idxs = Vector{Vector{Int}}(undef, k)
-    for i in 1:k
-        X_val_idxs[i] = all_folds[i]
-        X_train_idxs[i] = vcat(all_folds[1:i-1]..., all_folds[i+1:end]...)
-    end
-    return zip(X_train_idxs, X_val_idxs)
-end
+#TODO fix
+# function resample_folds(X::AbstractMatrix, k::Integer, train_ratio::Float64; shuffle_first=false, rng::Union{Nothing, AbstractRNG}=nothing)
+#     if isnothing(rng)
+#         rng = Xoshiro()
+#     end
+#     folds = fill(Vector{Vector{Int}}(undef, 2), k)
+#     h1 = MLJ.Holdout(; fraction_train=train_ratio, shuffle=shuffle_first, rng=rng)
+#     folds[1] .= MLJBase.train_test_pairs(h1, 1:size(X,1))[1]
+
+#     for i in 2:k
+#         h = MLJ.Holdout(; fraction_train=train_ratio, shuffle=true, rng=rng)
+#         folds[i] .= MLJBase.train_test_pairs(h, 1:size(X,1))[1]
+#     end
+#     return folds
+# end
+
+# function resample_folds(X::AbstractMatrix, y::AbstractVector, k::Integer, train_ratio::Float64; kwargs...)
+#     return resample_folds(X, k, train_ratio; kwargs...)
+# end
 
 function make_stratified_cvfolds(X::AbstractMatrix, y::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)
     stratified_cv = MLJ.StratifiedCV(; nfolds=nfolds,shuffle=shuffle, rng=rng)

@@ -40,11 +40,11 @@ ys = zeros(Int, size(Xs, 1))
 res = evaluate(
     Xs,
     ys,
+    2,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-    nfolds=2, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     eval_pms=nothing,#collect(5:20:95) ./100,

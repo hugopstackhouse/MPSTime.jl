@@ -21,6 +21,7 @@ params = (
     d=(5, 15), 
     chi_max=(20, 40),
 ) 
+nfolds = 30
 
 
 rs_f = jldopen("Folds/Kepler/c4_folds_flat.jld2", "r");
@@ -34,11 +35,11 @@ windows_julia = windows_per_percentage
 res = evaluate(
     Xs,
     ys,
+    nfolds,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10), 
-    nfolds=30, 
     n_cvfolds=5,
     fold_inds=[fold],
     eval_windows=windows_julia,

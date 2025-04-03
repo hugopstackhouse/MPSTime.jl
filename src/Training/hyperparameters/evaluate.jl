@@ -1,14 +1,74 @@
+"""
+```Julia
+function evaluate(
+    X::AbstractMatrix, 
+    [y::AbstractVector], 
+    nfolds::Integer,
+    tuning_parameters::NamedTuple,
+    tuning_optimiser=MPSRandomSearch();
+    kwargs...) -> results::Vector{Dictionary}
+```
+    Evaluate the performance of MPSTime by [`hyperparameter tuning`](@ref MPSTime.tune) on `nfolds` different folds of the timeseries dataset `X` with classes `y`.\
+    Detailed performance information for each fold are returned in each `results` dictionary.
+
+    `tuning_parameters` controls the hyperparamters to tune over, and `tuning_optimiser` specifies the hyperparameter tuning algorithm.\
+    These are passed directly to [`tune`](@ref), refer to its documentation for details. 
+
+    # Keyword Arguments
+    ## Defining Loss Type and the Folding Method
+        objective::TuningLoss=ImputationLoss(), 
+    ## Hyperparameter Tuning Options
+        These options are passed directly to their corresponding keywords in [`tune`](@ref)
+        `opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1)`:
+        `n_cvfolds::Integer=5`
+
+        `tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds`:
+        `tuning_rng::AbstractVector{<:Union{Integer, AbstractRNG}`
+
+
+
+    ## Distributed Processing
+
+    ## Saving and Resuming
+
+
+    verbosity::Integer=1,
+    input_supertype::Type=Float64,
+    tuning_opts0::AbstractMPSOptions=opts0,
+    fold_inds::Vector{<:Integer}=collect(1:nfolds),
+    provide_x0::Bool=true,
+    logspace_eta::Bool=false,
+    rng::Union{Integer, AbstractRNG}=1,
+    foldmethod::Union{Function, Vector}=make_stratified_folds, 
+    eval_pms::Union{Nothing, AbstractVector}=nothing,
+    eval_windows::Union{Nothing, AbstractVector, Dict}=nothing,
+    tuning_pms::Union{Nothing, AbstractVector}= nothing,
+    tuning_windows::Union{Nothing, AbstractVector, Dict}= nothing,
+    tuning_abstol::Float64=1e-3,
+    tuning_maxiters::Integer=500,
+    distribute_folds::Bool=false,   
+    distribute_cvfolds::Bool=false,
+    distribute_final_eval::Bool=false,
+    write::Bool=false,
+    writedir::String="evals",
+    simname::String="",
+    collect_tmps::Bool=length(fold_inds)==nfolds, # default to delete only if the entire eval is done at once
+    kwargs... # further kwargs passed to tune()
+    )
+```
+}=collect(1:nfolds),
+"""
 function evaluate(
     X::AbstractMatrix, 
     y::AbstractVector, 
+    nfolds::Integer,
     tuning_parameters::NamedTuple,
-    tuning_optimiser=SAMIN(); # bounded simulated annealing from Optim
+    tuning_optimiser=MPSRandomSearch();
     objective::TuningLoss=ImputationLoss(), 
     verbosity::Integer=1,
     opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
     input_supertype::Type=Float64,
     tuning_opts0::AbstractMPSOptions=opts0,
-    nfolds::Integer=30,
     n_cvfolds::Integer=5,
     fold_inds::Vector{<:Integer}=collect(1:nfolds),
     provide_x0::Bool=true,
@@ -28,7 +88,8 @@ function evaluate(
     distribute_final_eval::Bool=false,
     write::Bool=false,
     writedir::String="evals",
-    simname::String="",
+    simname::String="$(objective)_$(tuning_optimiser)_f=$(nfolds)_cv=$(n_cvfolds)_iters=$(tuning_maxiters)",
+    overwrite::Bool=false,
     collect_tmps::Bool=length(fold_inds)==nfolds, # default to delete only if the entire eval is done at once
     kwargs... # further kwargs passed to tune()
     )
@@ -41,9 +102,6 @@ function evaluate(
 
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
 
-    if isempty(simname)
-        simname = string(objective) * "_" * string(tuning_optimiser) * "_f=" * string(nfolds) * "_cv=" * string(n_cvfolds) * "_iters=" * string(tuning_maxiters)
-    end
     outfile = strip(writedir, '/') * "/" * strip(simname, '/') * ".jld2"
     tmpdir = strip(writedir, '/') * "/" * strip(simname, '/') * "_tmp/"
 
@@ -58,9 +116,13 @@ function evaluate(
 
         if write
             if isfile(fname)
-                println("Fold " * string(fold) * " already exists, skipping...")
-                JLD2.@load fname res_iter
-                return res_iter
+                if overwrite
+                    println("Fold " * string(fold) * " already exists, overwriting...")
+                else
+                    println("Fold " * string(fold) * " already exists, skipping...")
+                    JLD2.@load fname res_iter
+                    return res_iter
+                end
             end
         end
 
@@ -76,7 +138,8 @@ function evaluate(
         end
         best_params, cache = tune(
             X_train, 
-            y_train, 
+            y_train,
+            n_cvfolds, 
             tuning_parameters,
             tuning_optimiser; 
             objective=objective, 
@@ -84,7 +147,6 @@ function evaluate(
             input_supertype=input_supertype,
             provide_x0=provide_x0,
             logspace_eta=logspace_eta,
-            nfolds=n_cvfolds, 
             pms=nothing,
             windows=tuning_windows_inner,
             abstol=tuning_abstol, 
@@ -160,3 +222,7 @@ function evaluate(
     end
     return res
 end
+
+
+# class free version
+evaluate(X::AbstractMatrix, nfolds::Integer) = evaluate(X, zeros(Int, size(X,1)), nfolds, args...; kwargs...)

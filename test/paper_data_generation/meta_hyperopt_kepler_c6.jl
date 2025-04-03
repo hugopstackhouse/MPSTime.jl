@@ -17,6 +17,8 @@ params = (
     d=(5,15), 
     chi_max=(20,40)
 ) 
+nfolds = 30
+
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
@@ -38,11 +40,11 @@ windows_julia=windows_per_percentage
 res = evaluate(
     Xs,
     ys,
+    30,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-    nfolds=30, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     eval_pms=nothing,#collect(5:20:95) ./100,

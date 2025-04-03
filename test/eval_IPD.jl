@@ -35,11 +35,11 @@ folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 res = evaluate(
     vcat(X_train, X_test), 
     vcat(y_train, y_test), 
+    1, 
     params,
     BBO_random_search(); 
     objective=ClassificationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
-    nfolds=1, 
     pms=[0.05, 0.9],
     tuning_abstol=1e-3, 
     tuning_maxiters=2,

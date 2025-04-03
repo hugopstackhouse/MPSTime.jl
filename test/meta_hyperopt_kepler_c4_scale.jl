@@ -40,11 +40,11 @@ for inst in 2:5
     res = evaluate(
         Xs,
         ys,
+        30, 
         params,
         MPSRandomSearch(); 
         objective=ImputationLoss(), 
         opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-        nfolds=30, 
         fold_inds=collect(24:30),
         n_cvfolds=5,
         eval_windows=windows_julia,

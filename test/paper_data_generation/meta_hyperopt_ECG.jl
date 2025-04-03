@@ -37,14 +37,15 @@ folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
 Xs = vcat(X_train, X_test)
 ys = zeros(Int, size(Xs, 1))
+nfolds=30
 res = evaluate(
     Xs,
     ys,
+    nfolds,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-    nfolds=30, 
     n_cvfolds=5,
     eval_windows=windows_julia,
     eval_pms = nothing,#collect(5:10:95) ./100,

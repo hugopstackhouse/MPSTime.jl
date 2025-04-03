@@ -155,41 +155,72 @@ function tune_across_folds(
 end
 
 """
-    tune(
-        X::AbstractMatrix, 
-        y::AbstractVector, 
-        parameters::NamedTuple,
-        method=MPSRandomSearch()
-        opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
-        objective::TuningLoss=ImputationLoss(), 
-        nfolds::Integer=5,
+```
+function tune(
+    X::AbstractMatrix, 
+    [y::AbstractVector], 
+    nfolds::Integer,
+    parameters::NamedTuple,
+    method=MPSRandomSearch(:LatinHypercubeSampling)) -> best_parameters::NamedTuple, cache::Dictionary
+```
+Perform `nfolds`-fold hyperparameter tuning of an MPS on the timeseries data `X`, optionally specifying the data classes `y`. Returns a named\
+tuple containing the optimal hyperparameters, and a cache dictionary that saves the mean loss of every tested hyperparameter combination.
+
+`parameters` specifies the hyperparameters to tune and their upper and lower bounds. Currently, every numeric field of [`MPSOptions`](@ref) is supported.\
+E.g. to tune the maximum bond dimension (`chi_max`) over the range [15,45], and the physical dimension (`d`) over the range [2,15]:
+```Julia
+parameters = (d=(2,15), chi_max=(15,45))
+```
+Note that the upper and lower bounds are passed to the hyperparameter tuning algorithm, but may not be strictly enforced depending on your choice of algorithm.\
+alternatively, use the `enforce_bounds=false` keyword argument to disable bounds checking completely.
+
+# Example:
+
+# Hyperparameter Tuning Methods
+The hyperparameter tuning algorithm can be specified with the `method` argument. This supports the builtin [`MPSRandomSearch`](@ref) methods, as well\
+as (in theory) any solver that is supported by the [`Optimization.jl interface`](https://docs.sciml.ai/Optimization/stable). Note that many of these solvers\
+struggle with discrete inputs, some of them require initial conditions (`provide_x0=true`), and some require no initial conditions (`provide_x0=false`),\
+so your mileage may vary.
+
+# Keyword Arguments
+## Hyperparameter Options
+opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
+        input_supertype::Type=Float64,
+        enforce_bounds::Bool=true,
+        logspace_eta::Bool=false,
+## Tuning algorithm
+abstol::Float64=1e-3,
+        maxiters::Integer=250,
+        provide_x0::Bool=true,
         rng::Union{Integer, AbstractRNG}=1,
-        foldmethod::Union{Function, Vector}=make_stratified_folds, 
-        pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95),
-        verbosity::Integer=1,
-        abstol::Float64=1e-3,
-        maxiters::Integer=500
-    )
+        foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
+## Loss and Windowing
+- `objective::TuningLoss=ImputationLoss()`:
+- `pms::Union{Nothing, AbstractVector}=nothing`:
+- `windows::Union{Nothing, AbstractVector, Dict}=nothing`:
 
-Train a hyperparameter tuned MPS model on X,y with 
-# Arguments
-...
-- `method::TuningMethod`: either GridSearch or an algorithm from Optim (including Pswarm, simulatedAnnealing, grad desc methods if we want to be fancy )
-- `objective::TuningLoss`: I'll setup a predetermined list including classification losses ('inaccuracy') or imputation metrics (MAE)
-- `distributed::Bool`: I can use all the work I put in to optimise imputation with the distributed library here
+## Folds and Cross validation
 
+## Logging
+    `verbosity::Integer=1`:
+            pre_string::String=""
 
+## Distributed Computing
+- distribute_folds::Bool=false,
+        distribute_iters::Bool=false,
+        workers::AbstractVector{Int}=distribute_folds ? workers() : Int[],
+        disable_nondistributed_threading::Bool=false
 """
 function tune(
         X::AbstractMatrix, 
         y::AbstractVector, 
+        nfolds::Integer,
         parameters::NamedTuple,
         method=MPSRandomSearch(); # A latin hypercube based random search
         opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
         input_supertype::Type=Float64,
         enforce_bounds::Bool=true,
         objective::TuningLoss=ImputationLoss(), 
-        nfolds::Integer=5,
         rng::Union{Integer, AbstractRNG}=1,
         foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
         pms::Union{Nothing, AbstractVector}=nothing, #TODO make default behaviour a bit better
@@ -198,7 +229,7 @@ function tune(
         provide_x0::Bool=true,
         logspace_eta::Bool=false,
         abstol::Float64=1e-3,
-        maxiters::Integer=500,
+        maxiters::Integer=250,
         distribute_folds::Bool=false,
         distribute_iters::Bool=false,
         workers::AbstractVector{Int}=distribute_folds ? workers() : Int[],
@@ -208,6 +239,10 @@ function tune(
     )
     if isempty(parameters) || nfolds == 0 || maxiters == 0
         return opts0, Dict()
+    end
+
+    if objective isa ImputationLoss && opts0.sigmoid_transform
+        @warn pre_string * "Using sigmoid_transform preprocessing on an imputation-style problem generally leads to worse performance."
     end
     # basic checks    
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
@@ -287,7 +322,7 @@ function tune(
 
 end
 
-#eval_loss returns an array of loss scores. This is either a singleton or imputation loss scores indexed by percentage missing
-
+# no class version
+tune(X::AbstractMatrix, nfolds::Integer, args...; kwargs...) = tune(X, zeros(Int, size(X, 1)), args...; kwargs...)
 
 
