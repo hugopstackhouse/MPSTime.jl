@@ -274,7 +274,7 @@ See ??fitMPS to for a more verbose example
 ```
 julia> opts = MPSOptions(; d=5, chi_max=30, encoding=:Legendre, eta=0.05);
 julia> print_opts(opts) # Prints options as a table
-       ...
+[...]
 julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 Generating initial weight MPS with bond dimension χ_init = 4
         using random state 1234.
@@ -283,7 +283,7 @@ Using 1 iterations per update.
 Training KL Div. 28.213032851945012 | Training acc. 0.31343283582089554.
 Using optimiser CustomGD with the "TSGO" algorithm
 Starting backward sweeep: [1/5]
-        ...
+[...]
 
 Starting forward sweep: [5/5]
 Finished sweep 5. Time for sweep: 0.76s
@@ -312,7 +312,7 @@ julia> f = jldopen(dloc, "r")
        close(f);
 julia> opts = MPSOptions(; d=5, chi_max=30, encoding=:Legendre, eta=0.05);
 julia> print_opts(opts) # Prints options as a table
-       ...
+[...]
 julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 Generating initial weight MPS with bond dimension χ_init = 4
         using random state 1234.
@@ -321,7 +321,7 @@ Using 1 iterations per update.
 Training KL Div. 28.213032851945012 | Training acc. 0.31343283582089554.
 Using optimiser CustomGD with the "TSGO" algorithm
 Starting backward sweeep: [1/5]
-        ...
+[...]
 
 Starting forward sweep: [5/5]
 Finished sweep 5. Time for sweep: 0.76s

@@ -57,7 +57,7 @@ res = evaluate(
     distribute_cvfolds=false,
     writedir="KC4_evals_final",
     write=true,
-    collect_tmps=false
+    delete_tmps=false
 )
 
 # 0.20072699080538697

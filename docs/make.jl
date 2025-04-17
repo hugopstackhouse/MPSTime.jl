@@ -18,15 +18,16 @@ makedocs(
     "Imputation" => "imputation.md",
     "Synthetic Data Generation" => "synthdatagen.md",
     "Encodings" => "encodings.md",
+    "Hyperparameter Tuning" => "hyperparamaters.md",
     "Tools" => "tools.md",
     "Docstrings" => "docstrings.md",
     "References" => "references.md",
     ]
 )
 
-deploydocs(
-    repo = "github.com/joshuabmoore/MPSTime.jl.git",
-)
+# deploydocs(
+#     repo = "github.com/joshuabmoore/MPSTime.jl.git",
+# )
 
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual

@@ -1,7 +1,9 @@
 abstract type TuningLoss end
-struct MisclassificationRate <: TuningLoss end
+abstract type ClassificationLoss <: TuningLoss end
+struct MisclassificationRate <: ClassificationLoss end
+struct BalancedMisclassificationRate <: ClassificationLoss end
+
 struct ImputationLoss <: TuningLoss end 
-struct BalancedMisclassificationRate <: TuningLoss end
 
 """
 ```Julia
@@ -77,10 +79,29 @@ end
 #     return resample_folds(X, k, train_ratio; kwargs...)
 # end
 
-function make_stratified_cvfolds(X::AbstractMatrix, y::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)
+"""
+```
+make_stratified_cvfolds(
+    Xs::AbstractMatrix, 
+    ys::AbstractVector, 
+    nfolds::Integer; 
+    rng=Union{Integer, AbstractRNG}, 
+    shuffle::Bool=true
+) -> folds::Vector{Vector{Vector{Int}}}
+ 
+Creates `nfold`-fold stratified cross validation train/validation splits for hyperparameter tuning, with the form:
+
+```
+julia> train_indices_fold_i, validation_indices_fold_i = folds[i]
+```
+Uses MLJs [`StratifiedCV()`](@ref MLJ.StratifiedCV) method. 
+ ```
+
+"""
+function make_stratified_cvfolds(Xs::AbstractMatrix, ys::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)
     stratified_cv = MLJ.StratifiedCV(; nfolds=nfolds,shuffle=shuffle, rng=rng)
 
-    return MLJBase.train_test_pairs(stratified_cv, 1:size(X,1), y)
+    return MLJBase.train_test_pairs(stratified_cv, 1:size(Xs,1), ys)
 end
 
 function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix, rng::AbstractRNG=Random.GLOBAL_RNG)
@@ -104,12 +125,30 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
         end
         return [mar(collect(1.:ts_length), pm; rng=rng)[2] for pm in pms]
     else
-        throw(ArgumentError("Cannot specifiy both windows and pms!"))
+        throw(ArgumentError("Must specifiy either windows or pms when measuring Imputation Loss!"))
         return []
     end
 end
+"""
+```Julia
+eval_loss(
+    ::TuningLoss, 
+    mps::TrainedMPS, 
+    X_val::AbstractMatrix, 
+    y_val::AbstractVector, 
+    windows::Union{Nothing, AbstractVector}=nothing;
+    p_fold::Union{Nothing, Tuple}=nothing,
+    distribute::Bool=false,
+    )
+```
 
+Evaluate the `TuningLoss` of `mps` on the validation time-series dataset specified by `X_val`, `y_val`.
 
+`p_fold` is to allow verbose logging during runs of [`tune`](@ref) and [`evaluate`](@ref). When computing an imputation loss, \
+`windows` are used to compute imputation losses, as specified in [`tune`](@ref), and `distribute` will distribute the loss calculation across each time-series instance.
+
+"""
+function eval_loss end
 function eval_loss(::BalancedMisclassificationRate, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing, distribute::Bool=false)
     recall_sum = 0
     y_pred = classify(mps, X_val)

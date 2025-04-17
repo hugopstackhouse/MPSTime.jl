@@ -1,72 +1,126 @@
 """
 ```Julia
 function evaluate(
-    X::AbstractMatrix, 
-    [y::AbstractVector], 
+    Xs::AbstractMatrix, 
+    [ys::AbstractVector], 
     nfolds::Integer,
     tuning_parameters::NamedTuple,
     tuning_optimiser=MPSRandomSearch();
-    kwargs...) -> results::Vector{Dictionary}
+    <Keyword Arguments>) -> results::Vector{Dictionary}
 ```
-    Evaluate the performance of MPSTime by [`hyperparameter tuning`](@ref MPSTime.tune) on `nfolds` different folds of the timeseries dataset `X` with classes `y`.\
-    Detailed performance information for each fold are returned in each `results` dictionary.
+Evaluate the performance of MPSTime by [`hyperparameter tuning`](@ref tune) on `nfolds` different folds of the timeseries dataset `X` with classes `y`.
 
-    `tuning_parameters` controls the hyperparamters to tune over, and `tuning_optimiser` specifies the hyperparameter tuning algorithm.\
-    These are passed directly to [`tune`](@ref), refer to its documentation for details. 
+`tuning_parameters` controls the hyperparamters to tune over, and `tuning_optimiser` specifies the hyperparameter tuning algorithm.
+These are passed directly to [`tune`](@ref), refer to its documentation for details. 
 
-    # Keyword Arguments
-    ## Defining Loss Type and the Folding Method
-        objective::TuningLoss=ImputationLoss(), 
-    ## Hyperparameter Tuning Options
-        These options are passed directly to their corresponding keywords in [`tune`](@ref)
-        `opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1)`:
-        `n_cvfolds::Integer=5`
+# Return value
+A length `nfolds` vector of dictionaries that contain detailed informatation about each fold. Each dictionary has the following keys:
+- `"fold"=>Integer`: The fold index.
+- `"objective"=>String`: The objective (loss function) this fold was trained on.
+- `"train_inds"=>Vector`: The indices (rows of Xs) this fold was tuned/trained on.
+- `"test_inds"=>Vector`: The indices (rows of Xs) this fold was tested on.
+- `"optimiser"=>String`: Name of the optimiser used to hyperparameter tune each fold.
+- `"tuning_windows"=>Vector`: The windows used to hyperparameter tune this fold.
+- `"tuning_pms"=>Vector`: The pms used to hyperparameter tune this fold (possibly used to generate tuning_windows)".
+- `"eval_windows"=>Vector`: The windows used to evaluate the test loss.
+- `"eval_pms"=>eval_pms`: The pms used to evaluate the test loss (possibly used to generate eval_windows)".
+- `"time"=>Vector`: Total time to tune and test this fold in seconds.
+- `"opts"=>MPSOptions`: Optimal options for this fold as determined by tune(). Used to compute the test loss.
+- `"cache"=>Dict`: Cache of the validation losses of every set of hyperparameters evaluated on this fold. Disabled if `distribute_iters` is true.
+- `"loss"=>Union{Vector{Float64}, Float64}`. The test loss of this fold. If `objective` is an ImputationLoss(), this is a vector with each entry corresponding to a window
+in `results[fold]["eval_windows"].
 
-        `tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds`:
-        `tuning_rng::AbstractVector{<:Union{Integer, AbstractRNG}`
+There are a lot of keyword arguments... Extended help is avaliable with \`??evaluate\`
+
+# Extended Help
+# Keyword Arguments
+## Loss and Windowing
+- `objective::TuningLoss=ImputationLoss()`: The loss used to evaluate and tune the MPS. If its an ImputationLoss, then either `pms` or `windows` 
+must be specified for each of evaluation and tuning. See the [`tune`](@ref) extended documentation for more details.
+- `eval_pms::Union{Nothing, AbstractVector}=nothing`: pms ('percentage missing's) used to evaluate the test loss
+- `eval_windows::Union{Nothing, AbstractVector, Dict}=nothing`: windows used to evaluate the test loss.
+- `tuning_pms::Union{Nothing, AbstractVector}=nothing`: pms passed to tune, and used to compute validation loss.
+- `tuning_windows::Union{Nothing, AbstractVector, Dict}=nothing`: windows passed to tune, and used to compute validation loss.
+    
+- `rng::Union{Integer, AbstractRNG}=1`: An integer or RNG object used to seed any randomness in imputation window or search space generation. Random.seed!(fold) is called 
+prior to tuning each fold, so that any optimization algorithms that are random but don't take rng objects should still be deterministic.
+- `tuning_rng::AbstractVector{<:Union{Integer, AbstractRNG}=collect(1:nfolds)`: Passed through to `tune`. An integer or RNG object used to seed any randomness in 
+tuning imputation window generation or hyperperparameter searching.
+
+- `opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, 
+    log_level=-1, 
+    sigmoid_transform=(objective isa ClassificationLoss)
+)`: Options that are modified by the best options returned by tune. Used to train the MPS which evalutates the test loss. 
+
+- `tuning_opts0::AbstractMPSOptions=opts0`:` Initial guess passed as `opts0` to [`tune`](@ref) which sets the values of the non-tuned hyperparameters. 
+Should generally always be the same as `opts0`, but can be specified separately from `tuning_opts0` in case you wish to make the final mps train with more verbosity etc. 
 
 
 
-    ## Distributed Processing
 
-    ## Saving and Resuming
-
-
-    verbosity::Integer=1,
-    input_supertype::Type=Float64,
-    tuning_opts0::AbstractMPSOptions=opts0,
-    fold_inds::Vector{<:Integer}=collect(1:nfolds),
-    provide_x0::Bool=true,
-    logspace_eta::Bool=false,
-    rng::Union{Integer, AbstractRNG}=1,
-    foldmethod::Union{Function, Vector}=make_stratified_folds, 
-    eval_pms::Union{Nothing, AbstractVector}=nothing,
-    eval_windows::Union{Nothing, AbstractVector, Dict}=nothing,
-    tuning_pms::Union{Nothing, AbstractVector}= nothing,
-    tuning_windows::Union{Nothing, AbstractVector, Dict}= nothing,
-    tuning_abstol::Float64=1e-3,
-    tuning_maxiters::Integer=500,
-    distribute_folds::Bool=false,   
-    distribute_cvfolds::Bool=false,
-    distribute_final_eval::Bool=false,
-    write::Bool=false,
-    writedir::String="evals",
-    simname::String="",
-    collect_tmps::Bool=length(fold_inds)==nfolds, # default to delete only if the entire eval is done at once
-    kwargs... # further kwargs passed to tune()
-    )
+## Resampling and Cross Validation
+- `foldmethod::Union{Function, Vector}=make_stratified_cvfolds`: A vector of train/test splits, or a function that will generate them. 
+For example, to compute the train/train splits for the ith fold:
 ```
-}=collect(1:nfolds),
+Julia> folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
+Julia> train_inds, validtation_inds = folds[i];
+Julia> X_train, y_train = Xs[train_inds, :], ys[train_inds];
+Julia> X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];
+```
+This defaults to n-fold cross validation (with fold number specified by the `n_cvfolds` keyword).
+- `tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds`: Same as above, although it is passed to `tune` and used to split the training set into
+hyperparameter train/ validation sets. 
+- `fold_inds::Vector{<:Integer}=collect(1:nfolds)`: a vector of the fold indices to evaluate. This can be used to split large training runs into batches, or to resume a halted benchmark.
+
+
+
+## Distributed Processing
+Several parallel processing paradigms are availble for different use cases, implented using processors added via Distributed.jl's `addprocs()` function.
+- `distribute_iters::Bool=false`: When using an `MPSRandomSearch`, for each fold, distribute the search grid across all available processors. 
+For thread safety, using `distributed_iters` disables caching.
+- `distribute_folds::Bool=false`: Allocate one processor to each fold.
+- `distribute_cvfolds::Bool=false`: Equivalent to passing `distribute_folds` to `tune`. Allocates a processor to each hyperparameter train/val split.
+- `distribute_final_eval::Bool=false`: Allocate a processor to each test timeseries when computing the test loss. Useful when the test set is very large. 
+The only option compatible with the others. 
+
+## Saving and Resuming
+- `write::Bool=false`: Whether to write log files. If true, it will save temporary files logging each completed fold to `"\$writedir/\$(simname)_temp/"`, and the 
+final result to \$writedir/\$(simname).jld2".
+- `writedir::String="evals": The directory to save data to.
+- `simname::String="\$(objective)_\$(tuning_optimiser)_f=\$(nfolds)_cv\n_cvfolds)_iters=\$(tuning_maxiters)"`: The filename to save to within `writedir`.
+- `delete_tmps::Bool=length(fold_inds)==nfolds`: Whether to delete the temp directory at the end.
+
+## Logging
+- `verbosity::Integer=1`: Controls how explicit the logging is. 0 for none, 5 for maximimum. This is separate to the verbosity in MPSOptions.
+
+## Hyperparameter Tuning Options
+These options are passed directly to their corresponding keywords in [`tune`](@ref)
+- `n_cvfolds::Integer=5`: Corresponds to `nfolds` in tune, number of train/val splits.
+- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `params= (eta=(-3.,-1. ))` and `logspace_eta=true` will 
+sample an eta candidate from [-3.,-1.] according to the tuning algorithm as normal, but pass `eta = 10^(eta_candidate)` to `MPSOptions`. In this case, the 
+true eta search space will be [0.001, 0.1].
+- `input_supertype::Type=Float64`: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. 
+Typically, `Float64` is sufficient, but it can be set to `int` for purely discrete optimisation problems etc. This is necessary for mixed Integer / Float 
+hyperparmeter tuning because certain solvers in `Optimization.jl` require variables in the search space to all be the same type.
+- `tuning_abstol::Float64=1e-3`: Passed directly to `Optimization.jl`: Absolute tolerance in changes to the objective (loss) function. 
+- `tuning_maxiters::Integer=250`: Maximum number of iterations allowed when solving.
+- `provide_x0::Bool=true`: Whether to provide initial conditions to the solve, ignored by [`MPSRandomSearch`](@ref). The initial condition will be `opts0`, 
+unless it contains a hyperparameter outside the range specified by `params`, in which case the lower bound of that hyperparameter will be used.
+
+
+Further keyword arguments to `evaluate` are passed through to [`tune`](@ref), and then `Optimization.jl` through the [`Optimization.solve`](@ref) function
+
+```
 """
 function evaluate(
-    X::AbstractMatrix, 
-    y::AbstractVector, 
+    Xs::AbstractMatrix, 
+    ys::AbstractVector, 
     nfolds::Integer,
     tuning_parameters::NamedTuple,
     tuning_optimiser=MPSRandomSearch();
     objective::TuningLoss=ImputationLoss(), 
     verbosity::Integer=1,
-    opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
+    opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1, sigmoid_transform=(objective isa ClassificationLoss)),
     input_supertype::Type=Float64,
     tuning_opts0::AbstractMPSOptions=opts0,
     n_cvfolds::Integer=5,
@@ -82,7 +136,7 @@ function evaluate(
     tuning_pms::Union{Nothing, AbstractVector}= nothing,
     tuning_windows::Union{Nothing, AbstractVector, Dict}= nothing,
     tuning_abstol::Float64=1e-3,
-    tuning_maxiters::Integer=500,
+    tuning_maxiters::Integer=250,
     distribute_folds::Bool=false,   
     distribute_cvfolds::Bool=false,
     distribute_final_eval::Bool=false,
@@ -90,17 +144,17 @@ function evaluate(
     writedir::String="evals",
     simname::String="$(objective)_$(tuning_optimiser)_f=$(nfolds)_cv=$(n_cvfolds)_iters=$(tuning_maxiters)",
     overwrite::Bool=false,
-    collect_tmps::Bool=length(fold_inds)==nfolds, # default to delete only if the entire eval is done at once
+    delete_tmps::Bool=length(fold_inds)==nfolds, # default to delete only if the entire eval is done at once
     kwargs... # further kwargs passed to tune()
     )
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
     if objective isa ImputationLoss
-        eval_windows = make_windows(eval_windows, eval_pms, X, abs_rng)
-        # tuning_windows = make_windows(tuning_windows, tuning_pms, X, abs_rng)
+        eval_windows = make_windows(eval_windows, eval_pms, Xs, abs_rng)
+        # tuning_windows = make_windows(tuning_windows, tuning_pms, Xs, abs_rng)
     end
 
-    folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
+    folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=abs_rng) : foldmethod
 
     outfile = strip(writedir, '/') * "/" * strip(simname, '/') * ".jld2"
     tmpdir = strip(writedir, '/') * "/" * strip(simname, '/') * "_tmp/"
@@ -129,12 +183,12 @@ function evaluate(
         println("Beginning fold $fold:")
         tbeg = time()
         (train_inds, test_inds) = folds[fold]
-        X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
+        X_train, y_train, X_test, y_test = Xs[train_inds,:], ys[train_inds], Xs[test_inds,:], ys[test_inds]
     
         abs_rng_inner = tuning_rng[fold] isa Integer ? Xoshiro(tuning_rng[fold]) : tuning_rng[fold]
         tuning_windows_inner = nothing
         if objective isa ImputationLoss
-            tuning_windows_inner = make_windows(tuning_windows, tuning_pms, X, abs_rng_inner)
+            tuning_windows_inner = make_windows(tuning_windows, tuning_pms, Xs, abs_rng_inner)
         end
         best_params, cache = tune(
             X_train, 
@@ -215,10 +269,12 @@ function evaluate(
         res = map(_eval_fold, fold_inds)
 
     end
-    if write && collect_tmps
+    if write 
         @save outfile res
-        rm(tmpdir; recursive=true)
         println("Results saved to $outfile")
+        if delete_tmps
+            rm(tmpdir; recursive=true)
+        end
     end
     return res
 end
