@@ -239,9 +239,8 @@ See also: [`evaluate`](@ref)
 - `opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1, sigmoid_transform=objective isa ClassificationLoss)`: Default hyperparamaters to pass to `fitMPS`.
 The hyperparameter search space is constructed by modifying `opts0` with the values in `params`.
 - `enforce_bounds::Bool=true`: Whether to pass the constraints given in params to the optimisation algorithm.
-- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `params= (eta=(-3.,-1. ))` and `logspace_eta=true` will 
-sample an eta candidate from [-3.,-1.] according to the tuning algorithm as normal, but pass `eta = 10^(eta_candidate)` to `MPSOptions`. In this case, the 
-true eta search space will be [0.001, 0.1].
+- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `params= (eta=(10^-3,10^-1) )` and `logspace_eta=true` 
+will linearly sample each `eta_candidate` from `[-3.,-1.] according to the tuning algorithm as normal, but pass `eta = 10^(eta_candidate)` to `MPSOptions`. 
 - `input_supertype::Type=Float64`: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. 
 Typically, `Float64` is sufficient, but it can be set to `int` for purely discrete optimisation problems etc. This is necessary for mixed integer / Float 
 hyperparmeter tuning because certain solvers in `Optimization.jl` require variables in the search space to all be the same type.
@@ -375,6 +374,13 @@ function tune(
             throw(ArgumentError("Cannot tune '$key', only numeric types can be hyperoptimised."))
         end
         is_disc[i] = param_type <: Integer
+
+        if logspace_eta && key == :eta
+            if val[1] <= 0
+                throw(ArgumentError("Lower and upper bounds on eta must be positive!"))
+            end
+            val = log10.(val)
+        end
 
         if !isempty(val)
             lb[i], ub[i] = convert(param_type, val[1]), convert(param_type, val[2])

@@ -96,9 +96,8 @@ final result to \$writedir/\$(simname).jld2".
 ## Hyperparameter Tuning Options
 These options are passed directly to their corresponding keywords in [`tune`](@ref)
 - `n_cvfolds::Integer=5`: Corresponds to `nfolds` in tune, number of train/val splits.
-- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `params= (eta=(-3.,-1. ))` and `logspace_eta=true` will 
-sample an eta candidate from [-3.,-1.] according to the tuning algorithm as normal, but pass `eta = 10^(eta_candidate)` to `MPSOptions`. In this case, the 
-true eta search space will be [0.001, 0.1].
+- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `params= (eta=(1e-3,0.1 ))` and `logspace_eta=true` 
+will linearly sample each `eta_candidate` from `[-3.,-1.] according to the tuning algorithm as normal, but pass `eta = 10^(eta_candidate)` to `MPSOptions`. 
 - `input_supertype::Type=Float64`: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. 
 Typically, `Float64` is sufficient, but it can be set to `int` for purely discrete optimisation problems etc. This is necessary for mixed Integer / Float 
 hyperparmeter tuning because certain solvers in `Optimization.jl` require variables in the search space to all be the same type.
