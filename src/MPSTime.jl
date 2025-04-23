@@ -55,7 +55,6 @@ using LaTeXStrings # Equation formatting in plot titles/axes
 using PrettyTables # Nicely formatted training / imputation text output 
 import ProgressMeter 
 using Markdown # Documentation
-using Documenter
 
 using Tables # Used for MLJ
 using MLJ # Used for MLJ Integration
