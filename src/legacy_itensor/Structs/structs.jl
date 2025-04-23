@@ -38,11 +38,7 @@ function to_TimeSeriesIterable(ts::TimeSeriesIterableIT)
     return PState.(ts)
 end
 
-"""
-    EncodedTimeSeriesSet
 
-Holds an encoded time-series dataset, as well as a copy of the original data and its class distribution.
-"""
 struct EncodedTimeSeriesSetIT
     timeseries::TimeSeriesIterableIT
     original_data::Matrix{Float64}

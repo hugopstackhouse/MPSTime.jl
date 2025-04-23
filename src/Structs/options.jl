@@ -360,6 +360,9 @@ function MPSOptions(opts::Options,)
     return mopts
 end
 
+"""Convert a named tuple (:option=value) to an MPSOptions object"""
+MPSOptions(params::NamedTuple) = _set_options(MPSOptions(); params...)
+
 # ability to "modify" options. Useful in very specific cases.
 function _set_options(opts::AbstractMPSOptions; kwargs...)
     properties = propertynames(opts)

@@ -168,64 +168,59 @@ function tune_across_folds(
 
 end
 
-"""
-```
+@doc """
+```julia
 function tune(
     Xs::AbstractMatrix, 
     [ys::AbstractVector], 
     nfolds::Integer,
     parameters::NamedTuple,
-    method=MPSRandomSearch(:LatinHypercubeSampling)
+    optimiser=MPSRandomSearch(:LatinHypercubeSampling);
     <Keyword Arguments>) -> best_parameters::NamedTuple, cache::Dictionary
 ```
-Perform `nfolds`-fold hyperparameter tuning of an MPS on the timeseries data `Xs`, optionally specifying the data classes `ys`. Returns a named\
-tuple containing the optimal hyperparameters, and a cache dictionary that saves the mean loss of every tested hyperparameter combination.
+Perform `nfolds`-fold hyperparameter tuning of an MPS on the timeseries data `Xs`, optionally specifying the data classes `ys`. Returns a NamedTuple
+containing the optimal hyperparameters, and a cache Dictionary that saves the loss of every tested hyperparameter combination.
 
-`parameters` specifies the hyperparameters to tune and their upper and lower bounds (inclusive). Currently, every numeric field of [`MPSOptions`](@ref) is supported.\
-E.g. to tune the maximum bond dimension (`chi_max`) over the range [15,45], and the physical dimension (`d`) over the range [2,15]:
-```Julia
-parameters = (d=(2,15), chi_max=(15,45))
-```
-Note that the upper and lower bounds are passed to the hyperparameter tuning algorithm, but may not be strictly enforced depending on your choice of algorithm.\
-alternatively, use the `enforce_bounds=false` keyword argument to disable bounds checking completely (for compatible optimisers).
+`parameters` specifies the hyperparameters to tune and their upper and lower bounds (inclusive). Currently, every numeric field of [`MPSOptions`](@ref) is supported. (See Example)
+Note that the upper and lower bounds are passed to the hyperparameter tuning algorithm, but may not be strictly enforced depending on your choice of algorithm. 
+Alternatively, use the `enforce_bounds=false` keyword argument to disable bounds checking completely (for compatible optimisers).
 
 # Example:
-
-```
-julia> @load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
-
+To tune a classification problem by searching the hyperparameter space η ∈ [0.001, 0.1], d ∈ {5,6,7}, and χmax ∈ {20,21,...,25}:
+```julia-repl
 julia> params = (
-    eta=(1e-5,log10(0.5)), 
-    d=(2,15), 
-    chi_max=(15,45),
-);
+    eta=(1e-3, 1e-1), 
+    d=(5,7), 
+    chi_max=(20,25)
+); # configure the search space
 
 julia> nfolds = 5;
 
-julia> res = tune(
-    X_train, 
-    y_train, 
-    nfolds,
+julia> best_params, cache = tune(
+    X_train, # Training data as a matrix, rows are time series
+    y_train, # Vector of time series class labels
+    nfolds, # Number of cross validation folds
     params,
-    MPSRandomSearch(); 
-    objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10), 
-    pms=[0.05, 0.9],
-    abstol=1e-3, 
-    maxiters=200,
-    verbosity=2,
-    logspace_eta=true
+    MPSRandomSearch(); # Tuning algorithm
+    objective=MisclassificationRate(), # Type of loss to use
+    maxiters=20, # Maximum number of tuning iterations
+    logspace_eta=true # When true, the eta search space [0.001, 0.1] is sampled logarithmically
 )
 [...]
+
+julia> best_opts = MPSOptions(best_params); # convert to an MPSOptions object
+[...]
 ```
+Other problem classes are available, see the MPSTime documentation.
 
 
 # Hyperparameter Tuning Methods
-The hyperparameter tuning algorithm can be specified with the `method` argument. This supports the builtin [`MPSRandomSearch`](@ref) methods, as well\
-as (in theory) any solver that is supported by the [`Optimization.jl interface`](https://docs.sciml.ai/Optimization/stable). Note that many of these solvers\
-struggle with discrete discrete values, such as the integer vlues `chi_max` and `d`. Some of them require initial conditions (`provide_x0=true`), and some require no initial conditions (`provide_x0=false`),\
-so your mileage may vary. By default, `tune()` handles optimisers attempting to evaluate discrete hyperparameters at a non-integer value by rounding, \
-and using its own cache to avoid rounding based cache misses.
+The hyperparameter tuning algorithm can be specified with the `optimiser` argument. This supports the default builtin [`MPSRandomSearch`](@ref) methods, as well
+as (in theory) any solver that is supported by the [`Optimization.jl interface`](https://docs.sciml.ai/Optimization/stable). Note that many of these solvers
+struggle with discrete search spaces, such as tuning the integer valued `chi_max` and `d`. Some of them require initial conditions (set `provide_x0=true`), and some require no initial conditions (set `provide_x0=false`),
+so your mileage may vary. By default, `tune()` handles optimisers attempting to evaluate discrete hyperparameters at a non-integer value by rounding, 
+and using its own cache to avoid rounding based cache misses. This is effective, but has the downside of causing `maxiters` to be inaccurate (as 
+repeated hyperparameter evaluations caused by rounding result in a 'skipped' iteration).
 
 
 There are a lot of keyword arguments... Extended help is avaliable with \`??tune\`
@@ -236,33 +231,35 @@ See also: [`evaluate`](@ref)
 
 # Keyword Arguments
 ## Hyperparameter Options
-- `opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1, sigmoid_transform=objective isa ClassificationLoss)`: Default hyperparamaters to pass to `fitMPS`.
-The hyperparameter search space is constructed by modifying `opts0` with the values in `params`.
+- `opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1, sigmoid_transform=objective isa ClassificationLoss)`: Default hyperparamaters to pass to `fitMPS`. \
+Hyperparameter candidates are generated by modifying `opts0` with the values in the search space specified by `parameters`.
 - `enforce_bounds::Bool=true`: Whether to pass the constraints given in params to the optimisation algorithm.
-- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `params= (eta=(10^-3,10^-1) )` and `logspace_eta=true` 
-will linearly sample each `eta_candidate` from `[-3.,-1.] according to the tuning algorithm as normal, but pass `eta = 10^(eta_candidate)` to `MPSOptions`. 
-- `input_supertype::Type=Float64`: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. 
-Typically, `Float64` is sufficient, but it can be set to `int` for purely discrete optimisation problems etc. This is necessary for mixed integer / Float 
-hyperparmeter tuning because certain solvers in `Optimization.jl` require variables in the search space to all be the same type.
+- `logspace_eta::Bool=false`: Whether to treat the `eta` parameterspace as logarithmic. E.g. setting `parameters=(eta=(10^-3,10^-1) )` and `logspace_eta=true` \
+will sample each `eta_candidate` from the log10 search space [-3.,-1.], and then pass `eta = 10^(eta_candidate)` to `MPSOptions`. 
+- `input_supertype::Type=Float64`: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. \
+Typically, `Float64` is sufficient, but it can be set to `Int` for purely discrete optimisation problems etc. This is necessary for mixed integer / Float  \
+hyperparameter tuning because certain solvers in `Optimization.jl` require variables in the search space to all be the same type.
 
 
 ## Loss and Windowing
-- `objective::TuningLoss=ImputationLoss()`: The objective of the hyperparameter optimisation. This comes in two categories.
-    ### `ImputationLoss()` Uses the mean of the mean absolute error to measure the performance of an MPS on imputing unseen data. First, it generates 'corrupted' 
+- `objective::TuningLoss=ImputationLoss()`: The objective of the hyperparameter optimisation. This comes in two categories:
+######  Imputation Loss
+`obvjective=ImputationLoss()` Uses the mean of the mean absolute error to measure the performance of an MPS on imputing unseen data. First, it generates 'corrupted' \
 time series data by applying missing data windows to the validation set, using one of the following options:
-        * `pms::Union{Nothing, AbstractVector}=nothing`: Stands for 'percentage missings'. Will remove a randomly selected contiguous blocks from each time series in the validation set, according to the \
-percentages missing listed in the `pms` vector. For example, `pms=[0.05, 0.05, 0.6, 0.95]` will generate four windows, two with 5% missing, 
-and one each with 60% and 95% missing
-        * `windows::Union{Nothing, AbstractVector, Dict}=nothing`: Manually input missing windows. Expects a vector of missing windows, or a dictionary where
-`values(windows_dictionaray)` is a vector of missing windows.
-    The tuning loss is the average of computing the mean absolute error of imputing every window on every element of the validation set.
+* `pms::Union{Nothing, AbstractVector}=nothing`: Stands for 'percentage missings'. Will remove a randomly selected contiguous \
+blocks from each time series in the validation set, according to the percentages missing listed in the `pms` vector. For example, \
+`pms=[0.05, 0.05, 0.6, 0.95]` will generate four windows, two with 5% missing, and one each with 60% and 95% missing
+* `windows::Union{Nothing, AbstractVector, Dict}=nothing`: Manually input missing windows. Expects a vector of missing windows, or a dictionary where \
+`values(windows)` is a vector of missing windows.
 
-    ### Classification Loss
-    Classification type problems can be hyperparameter tuned to minimise either `MisclassificationRate()` (1 - classification accuracy), 
+The tuning loss is the average of computing the mean absolute error of imputing every window on every element of the validation set.
+
+###### Classification Loss
+Classification type problems can be hyperparameter tuned to minimise either `MisclassificationRate()` (1 - classification accuracy), \
 or `BalancedMisclassificationRate()` (1 - balanced accuracy).
 
-    ### Custom Loss Functions
-    Custom losses can be used by implementing a custom loss value type (`CustomLoss <: TuningLoss`) and extending the definition of [`MPSTime.eval_loss`](@ref) \
+###### Custom Loss Functions
+Custom losses can be used by implementing a custom loss value type (`CustomLoss <: TuningLoss`) and extending the definition of [`MPSTime.eval_loss`](@ref) \
 with the signature
 ```
 eval_loss(
@@ -275,23 +272,23 @@ eval_loss(
     distribute::Bool=false
 ) -> Union{Float64, Vector{Float64}
 ```
-if `eval_loss` returns a vector, then `tune()` will optimise `mean(eval_loss(...))`
+if `eval_loss` returns a vector, then `tune()` will optimise `mean(eval_loss(...))`. For concrete examples, see the documentation
 
 ## Tuning algorithm
 - `abstol::Float64=1e-3`: Passed directly to `Optimization.jl`: Absolute tolerance in changes to the objective (loss) function
 - `maxiters::Integer=250`: Maximum number of iterations allowed when solving
 - `provide_x0::Bool=true`: Whether to provide initial conditions to the solve, ignored by [`MPSRandomSearch`](@ref). The initial condition will be `opts0`, \
-unless it contains a hyperparameter outside the range specified by `params`, in which case the lower bound of that hyperparameter will be used.
-- `rng::Union{Integer, AbstractRNG}=1`: An integer or RNG object used to seed any randomness in imputation window or search space generation.
-- `kwargs...`: Any further keyword arguments to passed through to `Optimization.jl` through the [`Optimization.solve`](@ref) function
+unless it contains a hyperparameter outside the range specified by `parameters`, in which case the lower bound of that hyperparameter will be used.
+- `rng::Union{Integer, AbstractRNG}=1`: An Integer or RNG object used to seed any randomness in imputation window or search space generation.
+- `kwargs...`: Any further keyword arguments to passed through to `Optimization.jl` through the [`Optimization.solve`](@extref CommonSolve.solve) function
 
 ## Folds and Cross validation
 - `foldmethod::Union{Function, AbstractVector}=make_stratified_cvfolds`: The method used to generate the train/validation folds from `Xs`. \
-Can either be a vector of train/validation splits, or a function that produces them, with the signature `foldmethod(Xs,ys, nfolds; rng::AbstractRNG)` \
-for example, to compute the train/val splits for the ith fold:
+Can either be an `nfolds`-long Vector of `[train_indices::Vector, validation_indices::Vector]` pairs, or a function that produces them, with the signature `foldmethod(Xs,ys, nfolds; rng::AbstractRNG)` \
+To clarify, the `tune` function determines the train/validation splits for the ith fold in the following way:
 ```
 Julia> folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
-Julia> train_inds, validtation_inds = folds[i];
+Julia> train_inds, validation_inds = folds[i];
 Julia> X_train, y_train = Xs[train_inds, :], ys[train_inds];
 Julia> X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];
 ```
@@ -301,12 +298,12 @@ Julia> X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];
 - `pre_string::String=""`: Prints this string on the same line before logging messages are printed. Useful for logging when calling `tune()` multiple times in parallel.
 
 ## Distributed Computing
-Parallel processing is available using processors added via Distributed.jl's `addprocs()` function.
-- `distribute_iters::Bool=false`: When using an `MPSRandomSearch`, distribute the search grid across all available processors. For thread safety, using `distributed_iters` disables caching.
+Parallel processing is available using processors added via Distributed.jl's [`addprocs`](@extref Distributed.addprocs) function.
+- `distribute_iters::Bool=false`: When using an `MPSRandomSearch`, distribute the search grid across all available processors. For thread safety, using `distribute_iters` disables caching.
 - `distribute_folds::Bool=false`: Distribute each fold to its own processor. Scales up to at most `nfolds` processors. Not very compatible with `distribute_iters`.
 - `workers::AbstractVector{Int}=distribute_folds ? workers() : Int[]`: Workers that may be used to distribute folds, does not affect `distribute_iters`. \
 This can be used to run multiple instances of `tune()` on different sets of workers.
-- `disable_nondistributed_threading::Bool=false`: Attempts to disable threading using `BLAS.set_num_threads(1)` and `Strided.disable_threads()` (May not work if using the the MKL.jl linear algebra.).
+- `disable_nondistributed_threading::Bool=false`: Attempts to disable threading using `BLAS.set_num_threads(1)` and `Strided.disable_threads()` (May not work if using the MKL.jl linear algebra backend).
 """
 function tune(
         Xs::AbstractMatrix, 

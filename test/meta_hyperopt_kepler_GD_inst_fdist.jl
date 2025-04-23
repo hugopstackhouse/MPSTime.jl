@@ -14,16 +14,18 @@ inst = parse(Int, ARGS[1])
 Random.seed!(1)
 
 params = (
-    eta=(-3,log10(0.5)), 
+    eta=(1e-3, 0.5), 
     d=(5,15), 
     chi_max=(20,40)
 ) 
+nfolds=30
+
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 
 if nprocs() == 1
-    addprocs(30; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
+    addprocs(1; env=e, exeflags="--heap-size-hint=2.4G", enable_threaded_blas=false)
 end
 
 @everywhere using MPSTime, Distributed
@@ -39,11 +41,11 @@ ys = zeros(Int, size(Xs, 1))
 res = evaluate(
     Xs,
     ys,
+    30,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
-    nfolds=30, 
     # fold_inds=collect(1:30),
     n_cvfolds=5,
     eval_windows=windows_julia,
@@ -68,7 +70,7 @@ res = evaluate(
 # 0.20072699080538697
 # 0.22382542363624128
 # 0.1972986806310512
-@save "kepGD_rand_ns_$inst.jld2" res
+# @save "kepGD_rand_ns_$inst.jld2" res
 # 20 iter benchmarks 
 
 # SA()

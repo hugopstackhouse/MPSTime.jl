@@ -22,7 +22,7 @@ using Optim
 using OptimKit
 using Normalization # Standardised normalisation by Brendan :). Used to do the preprocessing / denormalising steps
 
-# Libraries for hyperparmeter tuning
+# Libraries for hyperparameter tuning
 using Optimization
 using OptimizationOptimJL
 import LatinHypercubeSampling as LHS # for random search
@@ -54,6 +54,8 @@ using StatsPlots, Plots, Plots.PlotMeasures # Plotting in imputation.jl
 using LaTeXStrings # Equation formatting in plot titles/axes
 using PrettyTables # Nicely formatted training / imputation text output 
 import ProgressMeter 
+using Markdown # Documentation
+using Documenter
 
 using Tables # Used for MLJ
 using MLJ # Used for MLJ Integration
