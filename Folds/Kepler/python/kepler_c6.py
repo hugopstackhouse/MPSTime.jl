@@ -93,6 +93,9 @@ for pm in window_idxs_kepler:
 with open("results/KEPC6_britsi_results_{}.pkl".format(inst), "wb") as f:
     pickle.dump(fold_scores_britsi_kepler_C6, f)
 
+# for i in {0..4}; do python kepler_c6.py $i; done
+
+
 
 # #### CSDI
 # fold_scores_CSDI_kepler_C6 = evaluate_folds_pypots(csdi, Xs_per_inst_C6[inst], folds_C6[inst], window_idxs_kepler)
