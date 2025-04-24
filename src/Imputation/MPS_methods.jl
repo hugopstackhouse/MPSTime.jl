@@ -126,7 +126,11 @@ function impute_at!(
 
     A = array(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
     d = size(A,1)
-    rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
+    if eltype(x_guess_range.xvals_enc[1]) isa SVector || eltype(eltype(x_guess_range.xvals_enc[1])) isa SVector
+        rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
+    else
+        rdm = zeros(eltype(A),d,d)
+    end
 
     imp_idx = imputation_sites[first_idx]
     if impute_order == :forwards && isassigned(x_samps, imp_idx - 1) # isassigned can handle out of bounds indices

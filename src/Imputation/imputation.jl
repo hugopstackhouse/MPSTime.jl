@@ -90,7 +90,7 @@ function init_imputation_problem(
     xvals=collect(range(guess_range...; step=dx))
     site_index=Index(opts.d)
     if opts.encoding.istimedependent
-        verbosity > -2 && println("Pre-computing possible encoded values of x_t, this may take a while... ")
+        verbosity > -1 && println("Pre-computing possible encoded values of x_t, this may take a while... ")
         # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
         if static_xvecs
             xvals_enc = [[SVector{opts.d}(get_state(x, opts, j, enc_args)) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
@@ -136,7 +136,7 @@ If the MPS was trained with a custom encoding, then this encoding must be passed
 - `guess_range::Union{Nothing, Tuple{<:Real,<:Real}}=nothing`: The range of values that guesses are allowed to take. This range is applied to normalised, encoding-adjusted time-series data. To allow any guess, leave as nothing, or set to encoding.range (e.g. [(-1., 1.) for the legendre encoding]).
 - `dx::Float64 = 1e-4`: The spacing between possible guesses in normalised, encoding-adjusted units. When imputing missing data with an MPS method, the imputed values will be selected from 
     range(guess_range...; step=dx)
-- `verbosity::Integer=1`: The verbosity of the initialisation process. Useful for debugging, or to completely suppress output.
+- `verbosity::Integer=1`: The verbosity of the initialisation process. Useful for debugging, set to -1 to completely suppress output.
 - `test_encoding::Bool=true`: Whether to double check the encoding and scaling options are correct. This is strongly recommended but has a slight performance cost, so may be disabled.
 - `static_xvecs::Bool=true`: Whether to store encoded xvalues as StaticVectors. Usually improved performance
 """
