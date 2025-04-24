@@ -2,9 +2,9 @@
 
 This tutorial for MPSTime will take you through tuning the hyperparameters of the [`fitMPS`](@ref) algorithm to maximise either imputation or classification performance.
 
-## Getting started
+## Setup
 
-For this tutorial, we'll use the same noisy trendy sinusoid dataset from the [`Classification`](@ref Classification_top) and [`Imputation`](@ref Imputation_top) sections.
+For this tutorial, we'll be solving a classification hyperoptimisation problem and an imputation hyperoptimisation problem use the same noisy trendy sinusoid dataset from the [`Classification`](@ref Classification_top) and [`Imputation`](@ref Imputation_top) sections.
 
 ```@repl
 using Random # fix rng seed
@@ -30,7 +30,7 @@ y_test = vcat(
 );
 ```
 
-### Setting up a classification problem
+## Hyperoptimising classification 
 The hyperparameter tuning algorithms supported by MPSTime support every numerical hyperparameter that may be specified by [`MPSOptions`](@ref). For this problem, we'll generate a small search space over the three most important hyperparameters: the maximum MPS bond dimension `chi_max`, the physical dimension `d`, and the learning rate `eta`. Every other hyperparamter will be left at its default value.
 
 The variables to optimise, along with their upper and lower bounds are specified with the syntax `params = (<variable_name_1>=(<lower bound>, <upper bound>))`, e.g.
@@ -44,7 +44,7 @@ params = (
 ```
 To solve real-world problems, the upper bounds on `d` and `chi_max` should be set much higher (e.g. 10 and 40), however the small search space will serve well enough for this example.
 
-#### K-fold cross validation with tune()
+### K-fold cross validation with tune()
 To optimise the hyperparameters on your dataset, simply call tune():
 
 ```julia-repl
@@ -76,7 +76,7 @@ The arguments used here are:
 
 There are many more customisation options for [`tune`](@ref), see the docstring and extended help for more information / advanced usecases.
 
-#### Evaluating model performance with evaluate()
+### Evaluating model performance with evaluate()
 If you want to estimate the performance of MPSTime on a dataset, you can call the [`evaluate`](@ref) function, which resamples your data into train/test splits using a provided resampling strategy (default is k-fold cross validation), tunes each split on the "training" set, and evaluates the test set. It can be called with the following syntax:
 
 ```julia-repl
@@ -141,7 +141,7 @@ julia> results = evaluate(
 ```
 
 
-### [Optimising an imputation problem](@id imputation_hyper)
+## [Hyperoptimising imputation imputation](@id imputation_hyper)
 The [`tune`](@ref) and [`evaluate`](@ref) methods may both be used to minimise imputation loss, with a small amount of extra setup. Setting `objective=ImputationLoss()` will optimise an MPS for imputation performance by minimising the mean absolute error between predicted and unseen data. To accomplish this, MPSTime takes data from the test (or validation) set, corrupts a portion of it, and then predicts what the corrupted data should be based on the uncorrupted values. There are two methods for how the test (or validation) data can be corrupted.
 1) Setting the `windows` (or `eval_windows`) keyword in [`tune`](@ref) (or [`evaluate`](@ref), respectively) to a vector of 'windows'. Each window is a vector of missing/corrupted data indices, for example
 ```julia
@@ -194,7 +194,7 @@ julia> results = evaluate(
 
 ```
 
-#### Custom Loss functions
+## Minimising a custom loss function
 Custom objectives can be used by implementing a custom loss value type (`CustomLoss <: MPSTime.TuningLoss`) and extending the definition of [`MPSTime.eval_loss`](@ref) with the signature
 ```julia
 eval_loss(
