@@ -84,34 +84,36 @@ else:
 folds = folds_C6[inst][0:nfolds]
 Xs = Xs_per_inst_C6[inst]
 
-#### Britsi
-fold_scores_britsi_kepler_C6 = evaluate_folds_pypots(britsi, Xs, folds, window_idxs_kepler)
-print("Kepler c6 BRITS-I Mean MAE:")
-for pm in window_idxs_kepler:
-    print(f"{pm}%:", np.mean(fold_scores_britsi_kepler_C6[pm]))
-
-with open("results/KEPC6_britsi_results_{}.pkl".format(inst), "wb") as f:
-    pickle.dump(fold_scores_britsi_kepler_C6, f)
-
 # for i in {0..4}; do python kepler_c6.py $i; done
+
+
+#### Britsi
+# fold_scores_britsi_kepler_C6 = evaluate_folds_pypots(britsi, Xs, folds, window_idxs_kepler)
+# print("Kepler c6 BRITS-I Mean MAE:")
+# for pm in window_idxs_kepler:
+#     print(f"{pm}%:", np.mean(fold_scores_britsi_kepler_C6[pm]))
+
+# with open("results/KEPC6_britsi_results_{}.pkl".format(inst), "wb") as f:
+#     pickle.dump(fold_scores_britsi_kepler_C6, f)
+
 
 
 
 # #### CSDI
-# fold_scores_CSDI_kepler_C6 = evaluate_folds_pypots(csdi, Xs_per_inst_C6[inst], folds_C6[inst], window_idxs_kepler)
-# print("Kepler c6 CSDI Mean MAE:")
-# for pm in window_idxs_kepler:
-#     print(f"{pm}%:", np.mean(fold_scores_CSDI_kepler_C6[pm]))
+fold_scores_CSDI_kepler_C6 = evaluate_folds_pypots(csdi, Xs_per_inst_C6[inst], folds_C6[inst], window_idxs_kepler)
+print("Kepler c6 CSDI Mean MAE:")
+for pm in window_idxs_kepler:
+    print(f"{pm}%:", np.mean(fold_scores_CSDI_kepler_C6[pm]))
 
-# with open("results/KEPC6_CSDI_results_{}.pkl".format(inst), "wb") as f:
-#     pickle.dump(fold_scores_CSDI_kepler_C6, f)
+with open("results/KEPC6_CSDI_results_{}.pkl".format(inst), "wb") as f:
+    pickle.dump(fold_scores_CSDI_kepler_C6, f)
 
 
 # # CDREC
-# fold_scores_CDrec_kepler_C6 = evaluate_folds_cdrec(Xs_per_inst_C6[inst], folds_C6[inst], window_idxs_kepler)
-# print("Kepler c6 CDrec Mean MAE:")
-# for pm in window_idxs_kepler:
-#     print(f"{pm}%:", np.mean(fold_scores_CDrec_kepler_C6[pm]))
+fold_scores_CDrec_kepler_C6 = evaluate_folds_cdrec(Xs_per_inst_C6[inst], folds_C6[inst], window_idxs_kepler)
+print("Kepler c6 CDrec Mean MAE:")
+for pm in window_idxs_kepler:
+    print(f"{pm}%:", np.mean(fold_scores_CDrec_kepler_C6[pm]))
 
-# with open("results/KEPC6_CDREC_results_{}.pkl".format(inst), "wb") as f:
-#     pickle.dump(fold_scores_CDrec_kepler_C6, f)
+with open("results/KEPC6_CDREC_results_{}.pkl".format(inst), "wb") as f:
+    pickle.dump(fold_scores_CDrec_kepler_C6, f)
