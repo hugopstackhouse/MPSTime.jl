@@ -185,7 +185,7 @@ function eval_loss(
     if ~isnothing(p_fold)
         verbosity, pre_string, tstart, fold, nfolds = p_fold
         logging = verbosity >= 2
-        foldstr = isnothing(fold) ? "" : "cvfold $fold:"
+        foldstr = isnothing(fold) ? "" : "cvfold $fold: "
     else
         logging = false
     end
@@ -199,7 +199,7 @@ function eval_loss(
 
     if distribute
         loss_by_window = @sync @distributed (+) for inst in 1:numval
-            logging && print(pre_string, "$foldstr Evaluating instance $inst/$numval...")
+            logging && print(pre_string, foldstr, "Evaluating instance $inst/$numval...")
             t = time()
             ws = Vector{Float64}(undef, length(windows))
             for (iw, impute_sites) in enumerate(windows)

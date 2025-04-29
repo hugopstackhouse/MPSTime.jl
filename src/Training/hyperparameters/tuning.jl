@@ -6,40 +6,53 @@ function make_objective(
     opts0::AbstractMPSOptions, 
     fields::AbstractVector{Symbol}, 
     types::AbstractVector{<:Type},
+    value_map::AbstractVector,
     Xs::AbstractMatrix, 
     ys::AbstractVector, 
+    maxiters::Integer,
     windows::Union{Nothing, AbstractVector};
     logspace_eta::Bool=false,
-    caching::Bool=true
+    caching::Bool=true,
+    max_cache_hits::Integer=100
     )
 
     fieldnames = Tuple(fields)
     cache = Dict{Tuple{types...}, Float64}()
     pool = distribute_folds ? CachingPool(workers) : []
-    iters = 0
+    iters = Ref{Int}(0)
+    hits = Ref{Int}(0)
 
     function safe_paramlist(optslist::AbstractVector; output=false)
+        optslist_mapped = Vector{Union{AbstractFloat, Integer}}(undef, length(optslist)) # after mapping using value_map but before rounding. For logging cache hits
         optslist_safe = Vector{Union{AbstractFloat, Integer}}(undef, length(optslist))
         for (i, field) in enumerate(optslist)
+            if ~isempty(value_map[i])
+                idx = round(Int,field)
+                field_mapped = value_map[i][idx]
+            else
+                field_mapped = field
+            end
+            optslist_mapped[i] = field_mapped
+
             t = types[i]
             if t <: Integer
-                rounded = round(Int,field)
+                rounded = round(Int, field_mapped)
                 optslist_safe[i] = rounded
-                if output && ~isapprox(field, rounded)
-                    println("Integer parameter $(fieldnames[i])=$field rounded to $(rounded)!")
+                if output && ~isapprox(field_mapped, rounded)
+                    println("Integer parameter $(fieldnames[i])=$field_mapped rounded to $(rounded)!")
                 end
             elseif logspace_eta && fieldnames[i] == :eta
                 # @show field
-                optslist_safe[i] = convert(t, 10^field)
+                optslist_safe[i] = convert(t, 10^field_mapped)
                 if output
-                    println("Logspace eta $field -> $(10^field)")
+                    println("Logspace eta $field_mapped -> $(10^field_mapped)")
                 end
             else
-                optslist_safe[i] = convert(t, field)
+                optslist_safe[i] = convert(t, field_mapped)
             end
 
         end
-        return optslist_safe
+        return optslist_mapped, optslist_safe
     end
 
     function cvloss(fold, hparams, opts, p)
@@ -48,21 +61,21 @@ function make_objective(
         X_train, y_train, X_val, y_val = Xs[train_inds,:], ys[train_inds], Xs[val_inds,:], ys[val_inds]
 
         ti=time()
-        verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: training MPS with $(hparams)...)")
+        verbosity >= 1 && println(pre_string, "iter $(iters[]), cvfold $fold: training MPS with $(hparams)...)")
         loss = 0
         try
             mps, _... = fitMPS(X_train, y_train, opts);
             train_time = time()
 
-            loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity-1, pre_string * "iter $iters, ", tstart, fold, nfolds))) # eval_loss always returns an array
-            verbosity >= 1 && println(pre_string, "iter $iters, cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
+            loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity-1, pre_string * "iter $(iters[]), ", tstart, fold, nfolds))) # eval_loss always returns an array
+            verbosity >= 1 && println(pre_string, "iter $(iters[]), cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
         
         catch e # handle scd algorithm diverging
             if e isa LoadError || e isa ArgumentError
                 if opts.svd_alg == "recursive"
                     loss = Inf64
                 else
-                    println(pre_string, "iter $iters, cvfold $fold: MPS $(hparams)...) diverged, retrying with slower SVD algorithm")
+                    println(pre_string, "iter $(iters[]), cvfold $fold: MPS $(hparams)...) diverged, retrying with slower SVD algorithm")
                     loss = cvloss(fold, hparams, _set_options(opts; svd_alg="recursive"), p)
                 end
             else
@@ -74,15 +87,24 @@ function make_objective(
 
     function tr_objective(optslist::AbstractVector, p)
         verbosity, pre_string, tstart, nfolds = p
-        iters += 1
 
-        optslist_safe = safe_paramlist(optslist; output=verbosity>=3)
+        optslist_mapped, optslist_safe = safe_paramlist(optslist; output=verbosity>=3)
         
         key = tuple(optslist_safe...)
         if caching && haskey(cache, key )
-            verbosity >= 1 && println(pre_string, "iter $iters:Cache hit at $(optslist) -> $(optslist_safe)!")
             loss = cache[key]
+            hits[] += 1
+            if verbosity >= 1
+                if verbosity >= 5 || hits[] <=3
+                    println(pre_string, "iter $(iters[]): Cache hit at $(optslist_mapped) -> $(optslist_safe)!")
+                elseif hits[] == 4
+                    println(pre_string, "iter $(iters[]): Too many cache hits, suppressing notifications!")
+                end
+
+            end
         else
+            hits[] = 0
+            iters[] += 1
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
             opts = _set_options(opts0; hparams...)
             
@@ -96,12 +118,26 @@ function make_objective(
             if caching
                 cache[key] = loss
             end
-            verbosity >= 1 && println(pre_string, "iter $iters, t=$(rtime(tstart)): Mean CV Loss: $loss")
+            verbosity >= 1 && println(pre_string, "iter $(iters[]), t=$(rtime(tstart)): Mean CV Loss: $loss")
         end
         return loss
     end
 
-    return tr_objective, cache, safe_paramlist
+    function enforce_maxiters_callback(state, l)
+        if iters[] >= maxiters
+            println("Manually stopping tune() due to max iterations hit! Optimization.jl will give a warning.")
+            stop = true
+        elseif hits[] > max_cache_hits
+            println("Manually stopping tune() because there were too many cache hits! (Is your search space too small?) Optimization.jl will give a warning.")
+            stop = true
+        else
+
+            stop = false
+        end
+        return stop
+    end
+
+    return tr_objective, enforce_maxiters_callback, cache, safe_paramlist
 end
 
 function tune_across_folds(
@@ -114,10 +150,10 @@ function tune_across_folds(
     tstart::Real;
     kwargs...
     )
-    x0, opts0, bounded, lb, ub, is_disc, fields, types = parameter_info
+    x0, opts0, bounded, lb, ub, is_disc, fields, types, value_map = parameter_info
     objective, method, workers, distribute_folds, distribute_iters, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
 
-    tr_objective, cache, safe_params = make_objective(
+    tr_objective, callback, cache, safe_params = make_objective(
         folds, 
         objective, 
         workers, 
@@ -125,8 +161,10 @@ function tune_across_folds(
         opts0, 
         fields, 
         types, 
+        value_map,
         Xs, 
         ys, 
+        maxiters,
         windows; 
         logspace_eta=logspace_eta, 
         caching=~distribute_iters
@@ -137,14 +175,14 @@ function tune_across_folds(
     # tr_objective = (x,u...) -> begin @show x; return sum(x.^2) end
 
     if nfolds <= 1
-        optslist_safe = safe_params(x0)
+        optslist_mapped, optslist_safe = safe_params(x0)
 
         return NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
     end
 
     if method isa MPSRandomSearch
         sol = grid_search(rng, x-> tr_objective(x,p), method, lb, ub, is_disc, types, fields, maxiters, distribute_iters)
-        optslist_safe = safe_params(sol)
+        optslist_mapped, optslist_safe = safe_params(sol)
     else
         if distribute_iters
             throw(ArgumentError("Can only distribute iterations when using an MPSRandomSearch"))
@@ -156,9 +194,9 @@ function tune_across_folds(
         else
             prob = OptimizationProblem(obj, x0_adj, p; int=is_disc)
         end
-        sol = solve(prob, method; abstol=abstol, maxiters=maxiters, kwargs...)
+        sol = solve(prob, method; abstol=abstol, callback=callback, kwargs...) # enforcing maxiters is handled by the callback
         verbosity >= 5 && print(sol)
-        optslist_safe = safe_params(sol.u)
+        optslist_mapped, optslist_safe = safe_params(sol.u)
     end
 
 
@@ -181,8 +219,14 @@ function tune(
 Perform `nfolds`-fold hyperparameter tuning of an MPS on the timeseries data `Xs`, optionally specifying the data classes `ys`. Returns a NamedTuple
 containing the optimal hyperparameters, and a cache Dictionary that saves the loss of every tested hyperparameter combination.
 
-`parameters` specifies the hyperparameters to tune and their upper and lower bounds (inclusive). Currently, every numeric field of [`MPSOptions`](@ref) is supported. (See Example)
-Note that the upper and lower bounds are passed to the hyperparameter tuning algorithm, but may not be strictly enforced depending on your choice of algorithm. 
+`parameters` specifies the hyperparameters to tune and (optionally) a search space. Currently, every numeric field of [`MPSOptions`](@ref) is supported. `parameters` 
+are specified as named tuples, with the key being the name of the hyperparameter (See Example below). There are a couple of options for specifying the bounds:
+- The preferred option is `Tuple` of lower/upper bounds: "`params=(eta=(upper_bound,lower_bound), ...)`", which allows the optimiser to choose any value in the \
+interval [upper_bound, lower_bound]. You can also pass an empty tuple: "`params=(eta=(), ...)`" which allows the parameter to take any non-negative value. 
+- As a `Vector` of possible values, e.g. `params = (d=[1,3,6,7,8], ...)`. For convenience, you can also use the `Tuple` syntax "`params=(d=(start,step,stop), ...)`", \
+which is equivalent to "`params = (d=start:step:stop, ...)`"
+
+Note that if you use the first method, the upper and lower bounds are passed to the hyperparameter tuning algorithm, but may not be strictly enforced depending on your choice of algorithm. 
 Alternatively, use the `enforce_bounds=false` keyword argument to disable bounds checking completely (for compatible optimisers).
 
 # Example:
@@ -217,10 +261,9 @@ Other problem classes are available, see the MPSTime documentation.
 # Hyperparameter Tuning Methods
 The hyperparameter tuning algorithm can be specified with the `optimiser` argument. This supports the default builtin [`MPSRandomSearch`](@ref) methods, as well
 as (in theory) any solver that is supported by the [`Optimization.jl interface`](https://docs.sciml.ai/Optimization/stable). Note that many of these solvers
-struggle with discrete search spaces, such as tuning the integer valued `chi_max` and `d`. Some of them require initial conditions (set `provide_x0=true`), and some require no initial conditions (set `provide_x0=false`),
-so your mileage may vary. By default, `tune()` handles optimisers attempting to evaluate discrete hyperparameters at a non-integer value by rounding, 
-and using its own cache to avoid rounding based cache misses. This is effective, but has the downside of causing `maxiters` to be inaccurate (as 
-repeated hyperparameter evaluations caused by rounding result in a 'skipped' iteration).
+struggle with discrete search spaces, such as tuning the integer valued `chi_max` and `d`, or tuning an `eta` specified with a vector. Some of them require initial conditions (set `provide_x0=true`), 
+and some require no initial conditions (set `provide_x0=false`), so your mileage may vary. By default, `tune()` handles optimisers attempting to evaluate 
+discrete hyperparameters at a non-integer value by rounding, and using its own cache to avoid rounding based cache misses.
 
 
 There are a lot of keyword arguments... Extended help is avaliable with \`??tune\`
@@ -359,6 +402,7 @@ function tune(
     ub = Vector{input_supertype}(undef, length(parameters))
     x0 = Vector{input_supertype}(undef, length(parameters))
     types = Vector{Type}(undef, length(parameters))
+    value_map = Vector[ [] for _ in 1:length(parameters)]
 
     
 
@@ -370,20 +414,57 @@ function tune(
         if !( param_type <: Number)
             throw(ArgumentError("Cannot tune '$key', only numeric types can be hyperoptimised."))
         end
-        is_disc[i] = param_type <: Integer
 
         if logspace_eta && key == :eta
             if val[1] <= 0
                 throw(ArgumentError("Lower and upper bounds on eta must be positive!"))
             end
+            if val isa AbstractVector || length(val) == 3
+                throw(ArgumentError("logspace_eta doesn't make sense with this method of specifying eta values"))
+
+            end
             val = log10.(val)
         end
 
-        if !isempty(val)
-            lb[i], ub[i] = convert(param_type, val[1]), convert(param_type, val[2])
+        if val isa AbstractVector # [vals]
+            is_disc[i] = true # override default type
+            sorted = sort(val)
+            value_map[i] = sorted
+            lb[i], ub[i] = 1, length(val)
+
+            if enforce_bounds == false
+                @warn "Not enforcing bounds when specifying `params` as a Vector can lead to odd/undefined interactions between MPSTime and Optimization.jl."
+            end
+
+            
+        elseif val isa Tuple
+            if length(val) == 3 # (lb, step, ub)
+                is_disc[i] = true # override default type
+                value_map[i] = range(val[1], val[end]; step=val[2])
+                lb[i], ub[i] = 1, length(value_map[i])
+                if enforce_bounds == false
+                    @warn "Not enforcing bounds when specifying `params` as a range (`key=(start,step,step)`) can lead to odd/undefined interactions between MPSTime and Optimization.jl."
+                end
+                
+            elseif length(val) == 2 # (lower bound, upper bound)
+                is_disc[i] = param_type <: Integer
+                lb[i], ub[i] = convert(param_type, val[1]), convert(param_type, val[2])
+
+            elseif length(val) == 0 # no bounds
+                is_disc[i] = param_type <: Integer
+
+                if is_disc
+                    lb[i], ub[i] = one(param_type), typemax(param_type)
+                else
+                    lb[i], ub[i] = eps(param_type), typemax(param_type)
+                end
+            else
+                throw(ArgumentError("Unknown parameter format. Options are key=[vals], key=(), key=(lb,ub), key=(lb,step,ub)"))
+            end
         else
-            lb[i], ub[i] = one(param_type), typemax(param_type)
+            throw(ArgumentError("Unknown parameter format. Options are key=[vals], key=(), key=(lb,ub), key=(lb,step,ub)"))
         end
+
 
         if startx < lb[i] || startx > ub[i]
             startx = lb[i]
@@ -398,12 +479,12 @@ function tune(
     fields = [keys(parameters)...]
     perm = sortperm(fields)
 
-    for vec in [fields, types, x0, is_disc, lb, ub]
+    for vec in [fields, types, x0, is_disc, lb, ub, value_map]
         permute!(vec, perm)
     end
 
 
-    parameter_info = x0, opts0, enforce_bounds, lb, ub, is_disc, fields, types
+    parameter_info = x0, opts0, enforce_bounds, lb, ub, is_disc, fields, types, value_map
     tuning_settings = objective, method, workers, distribute_folds, distribute_iters, nfolds, windows, pre_string, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
     if nfolds <= 1
