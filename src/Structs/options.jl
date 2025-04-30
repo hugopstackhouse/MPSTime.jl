@@ -63,7 +63,7 @@ Set the hyperparameters and other options for fitMPS.
 
 ## Encoding Options
 - `encoding::Symbol=:Legendre`: The encoding to use, including :Stoudenmire, :Fourier, :Legendre, :SLTD, :Custom, etc. see Encoding docs for a complete list. Can be just a time (in)dependent orthonormal basis, or a time (in)dependent basis mapped onto a number of "splits" which distribute tighter basis functions where the sites of a timeseries are more likely to be measured.  
-- `projected_basis::Bool=false`: Whether toproject a basis onto the training data at each time. Normally, when specifying a basis of dimension *d*, the first *d* lowest order terms are used. When project=true, the training data is used to construct a pdf of the possible timeseries amplitudes at each time point. The first *d* largest terms of this pdf expanded in a series are used to select the basis terms.
+- `projected_basis::Bool=false`: Whether to project a basis onto the training data at each time. Normally, when specifying a basis of dimension *d*, the first *d* lowest order terms are used. When project=true, the training data is used to construct a pdf of the possible timeseries amplitudes at each time point. The first *d* largest terms of this pdf expanded in a series are used to select the basis terms.
 - `aux_basis_dim::Int=2`: Unused for standard encodings. If the encoding is a SplitBasis, serves as the auxilliary dimension of a basis mapped onto the split encoding, so that the number of histogram bins = *d* / *aux_basis_dim*. 
 - `encode_classes_separately::Bool=false`: Only relevant for data driven bases. If true, then data is split up by class before being encoded. Functionally, this causes the encoding method to vary depending on the class
 

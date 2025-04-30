@@ -14,35 +14,31 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 ## Setup
 
 The first step is to train an MPS. 
-Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid.
+Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid (we discuss the demonstration dataset more in [`Classification`](@ref nts_demo)).
 
-```Julia
-# Fix rng seed
-using Random
-rng = Xoshiro(1)
-
-# dataset size
-ntimepoints = 100
-ntrain_instances = 300
-ntest_instances = 200
-
-# generate the train and test datasets
-X_train = trendy_sine(ntimepoints, ntrain_instances, 0.1, rng);
-X_test = trendy_sine(ntimepoints, ntest_instances , 0.1, rng);
-
+```jldoctest imputation
+using MPSTime, Random 
+rng = Xoshiro(1); # fix rng seed
+ntimepoints = 100; # specify number of samples per instance
+ntrain_instances = 300; # specify num training instances
+ntest_instances = 200; # specify num test instances
+X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=[-3,0,3], period=(12π,15π), rng=rng)[1];
+X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=[-3,0,3], period=(12π,15π), rng=rng)[1];
 # hyper parameters and training
-opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false);
+opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false); # disable sigmoid transform data preprocessing
 mps, info, test_states= fitMPS(X_train, opts);
+# output 
+[...]
 ```
 
 Next, we initialize an imputation problem. This does a lot of necessary pre-computation:
-```Julia
+```jldoctest imputation
 julia> imp = init_imputation_problem(mps, X_test);
-
+Initialising train states.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                          Summary:
 
- - Dataset has 300 training samples and 200 testing samples.
+ - Dataset has 300 training samples and 100 testing samples.
 Slicing MPS into individual states...
  - 1 class(es) were detected.
  - Time independent encoding - Legendre - detected.
@@ -50,6 +46,7 @@ Slicing MPS into individual states...
 Re-encoding the training data to get the encoding arguments...
 
  Created 1 ImputationProblem struct(s) containing class-wise mps and test samples.
+
 ```
 A summary of the imputation problem setup is printed to verify the model parameters and dataset information.
 For __multi-class__ data, you can pass `y_test` to `init_imputation_problem` in order to exploit the labels / class information while doing imputation.
@@ -64,13 +61,14 @@ The necessary options are:
 - `method`: The imputation method to use. Can be trajectories (ITS), median, mode, mean, etc...
 
 In this example, we will consider a single block of contiguous missing values, simulated from a missing-at-random mechanism (MAR).
-We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) baseline for comparison:   
+We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) benchmark for comparison:   
 
-```Julia
+```jldoctest imputation
+rng = Xoshiro(42) # Fix RNG
 class = 0
 pm = 0.8 # 80% missing data
-instance_idx = 59 # time series instance in test set
-_, impute_sites = mar(X_test[instance_idx, :], pm; state=42) # simulate MAR mechanism
+instance_idx = 1 # pick a time series instance in test set
+_, impute_sites = mar(X_test[instance_idx, :], pm; rng=rng) # simulate MAR mechanism
 method = :median
 
 imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
@@ -79,41 +77,43 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     instance_idx, 
     impute_sites, 
     method; 
-    NN_baseline=true, # whether to also do a baseline imputation using 1-NNI
+    NN_baseline=true, # whether to also do a baseline imputation using the (first) Nearest Neighbour benchmark
     plot_fits=true, # whether to plot the fits
-)
+    get_wmad=true # when method=:median, this uses the Weighted Median Absolute Deviation (WMAD) to compute the prediction error.
+);
+# output
+
 ```
 Several outputs are returned from `MPS_impute`:
 - `imputed_ts`: The imputed time-series instance, containing the original data points and the predicted values.
 - `pred_err`: The prediction error for each imputed value, given a known ground-truth.
 - `target_ts`: The original time-series instance containing missing values.
-- `stats`: A collection of statistical metrics (MAE and MAPE) evaluating imputation performance with respect to a ground truth. Includes baseline performance when `NN_baseline=true`.
+- `stats`: A collection of statistical metrics (MAE and MAPE) evaluating imputation performance with respect to a ground truth. Includes benchmark performance when `NN_baseline=true`.
 - `plots`: Stores plot object(s) in an array for visualization when `plot_fits=true`.
 
 We can inspect the imputation performance in a summary table:
-```Julia
+```jldoctest imputation
 julia> using PrettyTables
-julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon= crayon"yellow bold", tf = tf_unicode_rounded);
-╭─────────┬───────────╮
-│  Metric │     Value │
-├─────────┼───────────┤
-│     MAE │ 0.0855211 │
-│    MAPE │  0.125649 │
-│  NN_MAE │   0.11304 │
-│ NN_MAPE │  0.168085 │
-╰─────────┴───────────╯
+julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow bold", tf=tf_unicode_rounded);
+╭─────────┬──────────╮
+│  Metric │    Value │
+├─────────┼──────────┤
+│     MAE │ 0.227791 │
+│    MAPE │  4.89358 │
+│  NN_MAE │ 0.249707 │
+│ NN_MAPE │  3.57851 │
+╰─────────┴──────────╯
+
 ```
-Here, MAE and MAPE correspond to the mean absolute error (MAE) and mean absolute percentage error (MAPE) for the MPS, while the NN_ prefix corresponds to the same errors for the 1-NNI baseline. 
+The MAE and MAPE are the Mean Absolute Error and Mean Absolute Percentage Error for the MPS prediction, while the NN_ prefix corresponds to the same errors for the 1-Nearest Neighbours benchmark. In this case, MAPE is an unreliable measure of error as the data goes through zero. 
 
 
 To plot the imputed time series, we can call the plot function as follows: 
-```Julia
-julia> using Plots
-julia> plot(plots...)
+```@example imputation
+plots[1]
 ```
-![](./figures/median_impute.svg)
 
-The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
+The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NN benchmark.
 The blue shading indicates the uncertainty due to encoding error.
 
 There are a lot of other options, and many more imputation methods to choose from! See [`MPS_impute`](@ref) for more details.
@@ -121,7 +121,7 @@ There are a lot of other options, and many more imputation methods to choose fro
 ### Multi-block Imputation
 Building on the previous example of single-block imputation, MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
 For example, consider missing points between $t = 10-25$, $t = 40-60$ and $t = 75-90$:
-```Julia
+```jldoctest imputation
 class = 0
 impute_sites = vcat(collect(10:25), collect(40:60), collect(65:90))
 instance_idx = 32
@@ -133,24 +133,41 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     instance_idx, 
     impute_sites, 
     method; 
-    NN_baseline=true, # whether to also do a baseline imputation using 1-NNI
+    NN_baseline=true, # whether to also do a baseline imputation using the (first) Nearest Neighbour benchmark
     plot_fits=true, # whether to plot the fits
-)
+    get_wmad=true,
+);
+pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow bold", tf=tf_unicode_rounded);
+
+# output
+╭─────────┬──────────╮
+│  Metric │    Value │
+├─────────┼──────────┤
+│     MAE │ 0.198301 │
+│    MAPE │ 0.348419 │
+│  NN_MAE │ 0.246748 │
+│ NN_MAPE │ 0.400026 │
+╰─────────┴──────────╯
+
+```
+```@example imputation
+plots[1]
 ```
 ![](./figures/median_impute_nblocks.svg)
 
 ### Individual Point Imputation
 To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
-```Julia
-impute_sites = [10] # only impute t = 10
-impute_sites = [10, 25, 50] # impute multiple individual points
+```jldoctest imputation
+impute_sites = [10]; # only impute t = 10
+impute_sites = [10, 25, 50]; # impute multiple individual points
+# output
 ```
 
 
 ## Plotting Trajectories
 To plot individual trajectories from the conditional distribution, use `method=:ITS`. 
 Here, we'll plot 10 randomly selected trajectories for the missing points by setting the `num_trajectories` keyword: 
-```Julia
+```jldoctest imputation
 class = 0
 impute_sites = collect(10:90)
 instance_idx = 59
@@ -167,9 +184,26 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     num_trajectories=10, # number of trajectories to plot
     rejection_threshold=2.5 # limits how unlikely we allow the random trajectories to be.
     # there are more options! see [`MPS_impute`](@ref)
-)
+);
 
-plot(plots...)
+stats
+# output 
+10-element Vector{Any}:
+ Dict(:MAE => 1.2200775502599968, :MAPE => 3.733324659703926)
+ Dict(:MAE => 0.5716838167183007, :MAPE => 1.6168922829599235)
+ Dict(:MAE => 0.71267944648452, :MAPE => 2.154079307094404)
+ Dict(:MAE => 0.8714221674823085, :MAPE => 2.7483887874557795)
+ Dict(:MAE => 0.45241502865552063, :MAPE => 1.3617174021384433)
+ Dict(:MAE => 0.6102123471093596, :MAPE => 2.0809950956801977)
+ Dict(:MAE => 0.4704837916235067, :MAPE => 1.570459143512098)
+ Dict(:MAE => 1.1688768175333726, :MAPE => 3.7871590127017254)
+ Dict(:MAE => 0.9675089655655753, :MAPE => 2.6546703922049772)
+ Dict(:MAE => 1.5157201660193944, :MAPE => 5.092485476941726)
+
+```
+
+```@example imputation
+plots[1]
 ```
 ![](./figures/ITS_impute.svg)
 
@@ -180,13 +214,13 @@ plot(plots...)
 It can be interesting to inspect the probability distribution being sampled from at each missing time point. 
 To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain.
 
-```Julia
+```jldoctest imputation
 cdfs, ts, pred_err, target = get_cdfs(
     imp, 
     class, 
     instance_idx, 
     impute_sites
-    );
+);
 
 xvals = imp.x_guess_range.xvals[1:10:end]
 

@@ -61,14 +61,14 @@ function make_objective(
         X_train, y_train, X_val, y_val = Xs[train_inds,:], ys[train_inds], Xs[val_inds,:], ys[val_inds]
 
         ti=time()
-        verbosity >= 1 && println(pre_string, "iter $(iters[]), cvfold $fold: training MPS with $(hparams)...)")
+        verbosity >= 1 && println(pre_string, "iter $(iters[]), cvfold $fold: training MPS with $(hparams)...")
         loss = 0
         try
             mps, _... = fitMPS(X_train, y_train, opts);
             train_time = time()
 
             loss = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity-1, pre_string * "iter $(iters[]), ", tstart, fold, nfolds))) # eval_loss always returns an array
-            verbosity >= 1 && println(pre_string, "iter $(iters[]), cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s))")
+            verbosity >= 1 && println(pre_string, "iter $(iters[]), cvfold $fold: finished. MPS $(hparams) finished in $(rtime(ti))s (train=$(rtime(ti, train_time))s, loss=$(rtime(train_time))s)")
         
         catch e # handle scd algorithm diverging
             if e isa LoadError || e isa ArgumentError

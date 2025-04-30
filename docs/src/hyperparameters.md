@@ -6,36 +6,39 @@ This tutorial for MPSTime will take you through tuning the hyperparameters of th
 
 For this tutorial, we'll be solving a classification hyperoptimisation problem and an imputation hyperoptimisation problem use the same noisy trendy sinusoid dataset from the [`Classification`](@ref Classification_top) and [`Imputation`](@ref Imputation_top) sections.
 
-```@repl
-using Random # fix rng seed
+```@repl hyperopt
+using MPSTime, Random
 rng = Xoshiro(1); # define trendy sine function
 ntimepoints = 100; # specify number of samples per instance
 ntrain_instances = 300; # specify num training instances
 ntest_instances = 200; # specify num test instances
 X_train = vcat(
-    trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.1, rng),
-    trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.9, rng)
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, rng=rng)[1],
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.9, rng=rng)[1]
 );
 y_train = vcat(
     fill(1, ntrain_instances ÷ 2),
     fill(2, ntrain_instances ÷ 2)
 );
 X_test = vcat(
-    trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.1, rng),
-    trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.9, rng)
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.1, rng=rng)[1],
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.9, rng=rng)[1]
 );
 y_test = vcat(
     fill(1, ntest_instances ÷ 2),
     fill(2, ntest_instances ÷ 2)
 );
 ```
+!!! info
+    Given how computationally intensive hyperparameter tuning can be, if you're running these examples yourself it's a good idea to take advantage of the multiprocessing built into the MPSTime library (see the [Distributed Computing](@ref distributed_computing) section). 
+
 
 ## Hyperoptimising classification 
 The hyperparameter tuning algorithms supported by MPSTime support every numerical hyperparameter that may be specified by [`MPSOptions`](@ref). For this problem, we'll generate a small search space over the three most important hyperparameters: the maximum MPS bond dimension `chi_max`, the physical dimension `d`, and the learning rate `eta`. Every other hyperparamter will be left at its default value.
 
 The variables to optimise, along with their upper and lower bounds are specified with the syntax `params = (<variable_name_1>=(<lower bound>, <upper bound>))`, e.g.
 
-```julia
+```@repl hyperopt
 params = (
     eta=(1e-3, 1e-1), 
     d=(5,7), 
@@ -56,10 +59,30 @@ julia> best_params, cache = tune(
     params,
     MPSRandomSearch(); 
     objective=MisclassificationRate(), 
-    maxiters=20,
+    maxiters=20, # for demonstration purposes only, typically this should be much larger
     logspace_eta=true
-)
-[...]
+);
+# iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+# iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+# iter 1, cvfold 1: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 68.38s (train=66.85s, loss=1.53s)
+# iter 1, cvfold 2: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+# iter 1, cvfold 2: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.89s (train=39.81s, loss=0.08s)
+# iter 1, cvfold 3: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+# iter 1, cvfold 3: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 38.94s (train=38.86s, loss=0.08s)
+# iter 1, cvfold 4: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+# iter 1, cvfold 4: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.12s (train=39.04s, loss=0.08s)
+# iter 1, cvfold 5: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+# iter 1, cvfold 5: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.07s (train=38.99s, loss=0.08s)
+# iter 1, t=232.71: Mean CV Loss: 0.19666666666666666
+# iter 2, cvfold 1: training MPS with (chi_max = 24, d = 7, eta = 0.023357214690901226)...
+# [...]
+# iter 20, cvfold 5: finished. MPS (chi_max = 20, d = 5, eta = 0.018329807108324356) finished in 23.75s (train=23.68s, loss=0.07s))
+# iter 20, t=2797.13: Mean CV Loss: 0.32666666666666666
+
+best_params
+# (chi_max = 23,
+#  d = 7,
+#  eta = 0.008858667904100823,)
 
 ```
 which returns `best params`: a named tuple containing the optimised hyperparameters, and `cache`: a dictionary that saves the mean loss of every tested hyperparameter combination.
@@ -94,7 +117,7 @@ julia> results = evaluate(
     MPSRandomSearch(); 
     objective=MisclassificationRate(),
     tuning_maxiters=20
-)
+);
 
 julia> results[1] # displays results for fold 1.
 
@@ -141,7 +164,7 @@ julia> results = evaluate(
 ```
 
 
-## [Hyperoptimising imputation imputation](@id imputation_hyper)
+## [Hyperoptimising imputation](@id imputation_hyper)
 The [`tune`](@ref) and [`evaluate`](@ref) methods may both be used to minimise imputation loss, with a small amount of extra setup. Setting `objective=ImputationLoss()` will optimise an MPS for imputation performance by minimising the mean absolute error between predicted and unseen data. To accomplish this, MPSTime takes data from the test (or validation) set, corrupts a portion of it, and then predicts what the corrupted data should be based on the uncorrupted values. There are two methods for how the test (or validation) data can be corrupted.
 1) Setting the `windows` (or `eval_windows`) keyword in [`tune`](@ref) (or [`evaluate`](@ref), respectively) to a vector of 'windows'. Each window is a vector of missing/corrupted data indices, for example
 ```julia
@@ -310,7 +333,7 @@ MPSRandomSearch
 ```
 
 
-## Distributed computing
+## [Distributed computing](@id distributed_computing)
 Both tune [`tune`](@ref) and [`evaluate`](@ref) support several different parallel processing paradigms for different use cases, compatible with processors added via Distributed.jl's [`addprocs`](@extref Distributed.addprocs) function. 
 For example, to distribute each fold of the classification style evalutation above, run:
 ```julia-repl

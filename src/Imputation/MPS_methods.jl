@@ -350,37 +350,45 @@ end
 function impute_med_and_get_cdf!(
         mps::MPS,
         x_samps::AbstractVector{Float64},
+        imputation_method::Function,
         opts::Options,
         enc_args::AbstractVector,
         x_guess_range::EncodedDataRange,
         imputation_sites::Vector{Int},
         args...;
-        impute_order::Symbol=:forwards,
+        impute_order::Symbol,
         norm::Bool=true,
         kwargs...
     )
 
-    cdfs = Vector(undef, length(imputation_sites))
-
     if impute_order == :forwards
         mps_inds = 1:length(mps) # eachindex(IndexLinear, mps) is not defined :((
+        first_idx = 1
+        orthogonalize!(mps, first_idx) 
+        inds_ord = inds(mps[first_idx])
     elseif impute_order == :backwards
         mps_inds = reverse(1:length(mps))
+        first_idx = mps_inds[1]
+        orthogonalize!(mps, first_idx) 
+        inds_ord = reverse(inds(mps[end]))
     else
         throw(ArgumentError("impute_order must be either \":forwards\" or \":backwards\""))
     end
 
     s = get_siteinds(mps)
-    errs = zeros(Float64, length(x_samps))
+    errs = zeros(Float64, length(x_samps))#Vector{Float64}(undef, total_known_sites)
     total_impute_sites = length(imputation_sites)
+    cdfs = Vector(undef, length(imputation_sites))
 
-    first_idx = mps_inds[1]
-    orthogonalize!(mps, first_idx) 
-    A = mps[first_idx]
+    A = array(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
+    d = size(A,1)
+    if eltype(x_guess_range.xvals_enc[1]) isa SVector || eltype(eltype(x_guess_range.xvals_enc[1])) isa SVector
+        rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
+    else
+        rdm = zeros(eltype(A),d,d)
+    end
 
     imp_idx = imputation_sites[first_idx]
-
-    
     if impute_order == :forwards && isassigned(x_samps, imp_idx - 1) # isassigned can handle out of bounds indices
         x_prev = x_samps[imp_idx - 1]
 
@@ -391,14 +399,13 @@ function impute_med_and_get_cdf!(
         x_prev = nothing
     end
 
-
     for (ii,i) in enumerate(mps_inds)
         imp_idx = imputation_sites[i]
         site_ind = s[i]
         xvals = x_guess_range.xvals
         xvals_enc = x_guess_range.xvals_enc[imp_idx]
 
-        rdm = prime(A, site_ind) * dag(A)
+        rdm .= A * A'
 
         mx, ms, err, cdf = get_median_and_cdf(rdm, xvals, xvals_enc, site_ind, opts, imp_idx, enc_args, x_prev, args...; kwargs...)
         x_samps[imp_idx] = mx
@@ -408,14 +415,19 @@ function impute_med_and_get_cdf!(
        
         # recondition the MPS based on the prediction
         if ii != total_impute_sites
-            Am = A * dag(ms)
-            # A = normalize!(mps[mps_inds[ii+1]] * Am)
-            A = mps[mps_inds[ii+1]] * Am
+            Am = ms' * A #BLAS.gemv('C', A, ms)
+            next_it = mps[mps_inds[ii+1]]
+            if order == :forwards
+                At = itensor(Am, inds(next_it)[1]) * next_it
+            else
+                At = next_it * itensor(Am, inds(next_it)[end])
+            end
+            A = array(At)
             if norm
-                # necessary mathematically, but most imputation methods are normalisation agnostic. norm=false where possible saves a decent amount of time and memory
+                # necessary mathematically, but most imputation methods do this themselves or are normalisation agnostic. norm=false where possible saves a decent amount of time and memory
                 normalize!(A)
 
-                # the amount to normalize by can be calculated theoretically via a numerical integral, but thats slow
+                # the amount to normalize by _could_ be calculated theoretically via a numerical integral, but thats slow
                 # proba_state = get_conditional_probability(ms, rdm)
                 # A ./= sqrt(proba_state)
             end
