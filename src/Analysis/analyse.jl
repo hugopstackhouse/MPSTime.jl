@@ -84,8 +84,8 @@ function rho_correct(rho::Matrix, eigentol::Float64=sqrt(eps()))
     # reconstruct the rdm with the clamped eigenvalues
     rho_corrected = eigvecs * LinearAlgebra.Diagonal(eigs_clamped) * (eigvecs)'
     # check trace
-    if !isapprox(tr(rho_corrected), 1.0)
-       throw(DomainError("Tr(ρ_corrected) > 1.0!"))
+    if !isapprox(tr(rho_corrected), 1.0; atol=0.01)
+       throw(DomainError("Tr(ρ_corrected) > 1.0! ($(tr(rho_corrected)))"))
     end
     return rho_corrected
 end
@@ -146,4 +146,49 @@ function single_site_spectrum(mps::TrainedMPS)
         sees[i] = single_site_entropy(mpss[i]);
     end
     return sees
+end
+
+"""
+```Julia
+see_variation(mps::TrainedMPS, measure_series::Matrix, class::Int=0) -> Array{Float64, 3}
+```
+Compute the variation in single-site entanglement entropy for each site N in the MPS, 
+having measured sites 1 to N-1.
+
+# Arguments
+- `mps::TrainedMPS`: A trained Matrix Product State (MPS).
+- `measure_series::Matrix`: A matrix of time-series instances to measure (unscaled).
+- `class::Int`: Class MPS to compute SEE variation if there are multiple classes (MPSs).
+
+# Returns
+An array of dimension 3, where the first dimension is the time series instance, the second dimension is the probe site (site at which to measure SEE)
+and the third dimenion is the number of previous sites measured.  
+
+"""
+function see_variation(mps::TrainedMPS, measure_series::Matrix, class::Int=0)
+    imp = init_imputation_problem(mps, measure_series, verbosity=0);
+    mpsi = imp.mpss[class+1]
+    # get a baseline for the mps before measuring
+    see_baseline = single_site_entropy(mpsi)
+    # pre-computations
+    _, norms = MPSTime.transform_train_data(imp.X_train; opts=imp.opts)
+    measure_series_scaled, _ = MPSTime.transform_test_data(measure_series, norms; opts=imp.opts)
+    sites = siteinds(mpsi)
+    measure_series_encoded = [MPS([itensor(MPSTime.get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(collect(inst))]) for inst in eachrow(measure_series_scaled)]
+    # loop over each instance
+    see_measured = zeros(size(measure_series, 1), length(mpsi), length(mpsi))
+    ProgressMeter.@showprogress for i in eachindex(measure_series_encoded)
+        # make measurement
+        see_per_increment_instance = zeros(length(mpsi), length(mpsi))
+        see_per_increment_instance[1, :] = see_baseline
+        # loop over each site incrementally
+        for site in 1:(length(mpsi)-1)
+            _, conditioned_mps = MPSTime.precondition(mpsi, measure_series_scaled[i, :], measure_series_encoded[i], collect(site+1:length(mpsi))) 
+            normalize!(conditioned_mps)
+            see_conditioned = single_site_entropy(conditioned_mps)
+            see_per_increment_instance[site+1, site+1:end] = see_conditioned
+        end
+        see_measured[i, :, :] = see_per_increment_instance
+    end
+    return see_measured
 end

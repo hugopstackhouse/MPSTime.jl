@@ -284,7 +284,12 @@ function evaluate(
         end
 
     else
-        res = map(_eval_fold, fold_inds)
+        if distribute_cvfolds
+            pool = workers()
+            res = map(f->_eval_fold(f, pool), fold_inds)
+        else
+            res = map(_eval_fold, fold_inds)
+        end
 
     end
     if write 

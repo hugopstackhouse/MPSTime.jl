@@ -148,6 +148,7 @@ export
     # analysis
     bipartite_spectrum,
     single_site_spectrum,
+    see_variation,
 
     # Training functions
     fitMPS, # gotta fit those MPSs somehow
