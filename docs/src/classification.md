@@ -12,39 +12,64 @@ x^c_t = \sin{\left(\frac{2\pi}{\tau}t + \psi\right)} + \frac{mt}{T} + \sigma_c n
 
 where ``\tau`` is the period, ``m`` is the slope of a linear trend, ``\psi \in [0, 2\pi)`` is a uniformly random phase offset, ``\sigma_c`` is the noise scale, and ``n_t \sim \mathcal{N}(0,1)`` are  normally distributed random variables. 
 
-For the demonstration dataset, the two classes will be generated with different distributions of periods. The class one time series ``x^1`` have ``\tau \in[12\pi, 15\pi]``, and the class two time series ``x^2`` ``\tau \in[18\pi, 21\pi]``. We'll use ``\sigma_c = 0.1``, and the slope ``m`` will be randomly selected from ``\{-3,0,3\}``.
+For the demonstration dataset, the two classes will be generated with different distributions of periods. The class one time series ``x^1`` have ``\tau \in[12, 15]``, and the class two time series ``x^2`` will have``\tau \in[16, 19]``. We'll use ``\sigma_c = 0.2``, and the slope ``m`` will be randomly selected from ``\{-3,0,3\}``.
 
 
 We'll set up this dataset using the [`trendy_sine`](@ref) function from MPSTime.
  
-```jldoctest classification
+```jldoctest classification; output=false
 using MPSTime, Random
 rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance
-ntrain_instances = 300; # specify num training instances
+ntrain_instances = 600; # specify num training instances
 ntest_instances = 200; # specify num test instances
 X_train = vcat(
-    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(12π,15π), rng=rng)[1],
-    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(18π,21π), rng=rng)[1]
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(12,15), rng=rng)[1],
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(16,19), rng=rng)[1]
 );
 y_train = vcat(
     fill(1, ntrain_instances ÷ 2),
     fill(2, ntrain_instances ÷ 2)
 );
 X_test = vcat(
-    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(12π, 15π), rng=rng)[1],
-    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(18π,21π), rng=rng)[1]
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(12,15), rng=rng)[1],
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(16,19), rng=rng)[1]
 );
 y_test = vcat(
     fill(1, ntest_instances ÷ 2),
     fill(2, ntest_instances ÷ 2)
 );
+
 # output
+
+200-element Vector{Int64}:
+ 1
+ 1
+ 1
+ 1
+ 1
+ 1
+ 1
+ 1
+ 1
+ 1
+ ⋮
+ 2
+ 2
+ 2
+ 2
+ 2
+ 2
+ 2
+ 2
+ 2
+
 ```
 
 ```@example classification
-p1 = plot(X_train[1:10,:]');
-p2 = plot(X_train[end-10:end,:]');
+using Plots
+p1 = plot(X_train[1:20,:]'; colour="blue", alpha=0.5, legend=:none);
+p2 = plot(X_train[end-20:end,:]'; colour="blue", alpha=0.5, legend=:none);
 plot(p1,p2)
 ```
 
@@ -52,21 +77,20 @@ plot(p1,p2)
 For the most basic use of fitMPS, select your hyperparameters, and run the [`fitMPS`](@ref) function. 
 Some (truncated) output from our noisy trendy sine datam with default hyperparameters is given below. 
 
-```jldoctest classification
-julia> opts = MPSOptions() # calling this with no arguments gives default hyperparameters
-[...]
+```jldoctest classification; filter=[r"\[1\/10\](.*)MPS normalised"s => "[1/10]\n\n[...]\n\nMPS normalised"]
+julia> opts = MPSOptions(); # calling this with no arguments gives default hyperparameters
 
 julia> mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
 Generating initial weight MPS with bond dimension χ_init = 4
         using random state 1234.
-The test set couldn't be perfectly rescaled by the training set normalization, 13 additional rescaling operations had to be performed!
+The test set couldn't be perfectly rescaled by the training set normalization, 5 additional rescaling operations had to be performed!
 Initialising train states.
 Initialising test states.
 Using 1 iterations per update.
-Training KL Div. 115.58003772867558 | Training acc. 0.4666666666666667.
-Test KL Div. 116.05221574809566 | Testing acc. 0.475.
+Training KL Div. 114.94918174702372 | Training acc. 0.5016666666666667.
+Test KL Div. 116.97189034446042 | Testing acc. 0.54.
 
-Test conf: [43 57; 48 52].
+Test conf: [52 48; 44 56].
 Using optimiser CustomGD with the "TSGO" algorithm
 Starting backward sweeep: [1/10]
 Backward sweep finished.
@@ -76,42 +100,44 @@ Starting forward sweep: [1/10]
 
 MPS normalised!
 
-Training KL Div. -52.48023688697318 | Training acc. 0.9766666666666667.
-Test KL Div. -46.88084882847323 | Testing acc. 0.895.
+Training KL Div. -46.44916444847569 | Training acc. 0.9883333333333333.
+Test KL Div. -41.03275906157264 | Testing acc. 0.98.
 
-Test conf: [87 13; 8 92].
+Test conf: [99 1; 3 97].
+
 ```
 
 [`fitMPS`](@ref) doesn't use `X_test` or `y_test` for anything except printing performance evaluations, so it is safe to leave them blank. For unsupervised learning, input a dataset with only one class, or only pass `X_train` ( `y_train` has a default value of `zeros(Int, size(X_train, 1))` ).
 
-The `mps::TrainedMPS` can be passed directly to [`classify`](@ref) for classification, or [`init_imputation_problem`](@ref) to set up an imputation problem. The info `info` provides a short training summary, which can be pretty-printed with [`sweep_summary`](@ref).
+The `mps::TrainedMPS` can be passed directly to [`classify`](@ref) for classification, or [`init_imputation_problem`](@ref) to set up an imputation problem. `info` provides a short training summary, which can be pretty-printed with the [`sweep_summary`](@ref) function.
 
-You can use `test_states` to print a summary of the MPS performance on the test set.
-```Julia
-Julia> get_training_summary(mps, test_states; print_stats=true)
+You can use also `test_states` to print a summary of the MPS performance on the test set.
+```jldoctest classification
+julia> get_training_summary(mps, test_states; print_stats=true);   
 
-         Overlap Matrix
+          Overlap Matrix
 ┌──────┬───────────┬───────────┐
 │      │   |ψ1⟩    │   |ψ2⟩    │
 ├──────┼───────────┼───────────┤
-│ ⟨ψ1| │ 5.022e-01 │ 2.216e-04 │
+│ ⟨ψ1| │ 1.000e+00 │ 9.391e-03 │
 ├──────┼───────────┼───────────┤
-│ ⟨ψ2| │ 2.216e-04 │ 4.978e-01 │
+│ ⟨ψ2| │ 9.391e-03 │ 1.000e+00 │
 └──────┴───────────┴───────────┘
           Confusion Matrix
 ┌──────────┬───────────┬───────────┐
 │          │ Pred. |1⟩ │ Pred. |2⟩ │
 ├──────────┼───────────┼───────────┤
-│ True |1⟩ │       100 │         0 │
+│ True |1⟩ │        99 │         1 │
 ├──────────┼───────────┼───────────┤
-│ True |2⟩ │        15 │        85 │
+│ True |2⟩ │         3 │        97 │
 └──────────┴───────────┴───────────┘
 ┌───────────────────┬───────────┬──────────┬──────────┬─────────────┬─────────┬───────────┐
 │ test_balanced_acc │ train_acc │ test_acc │ f1_score │ specificity │  recall │ precision │
 │           Float64 │   Float64 │  Float64 │  Float64 │     Float64 │ Float64 │   Float64 │
 ├───────────────────┼───────────┼──────────┼──────────┼─────────────┼─────────┼───────────┤
-│             0.925 │       1.0 │    0.925 │ 0.924576 │       0.925 │   0.925 │  0.934783 │
+│              0.98 │  0.988333 │     0.98 │ 0.979998 │        0.98 │    0.98 │  0.980192 │
 └───────────────────┴───────────┴──────────┴──────────┴─────────────┴─────────┴───────────┘
+
 ```
 
 ## Hyperparameters
@@ -125,18 +151,15 @@ MPSOptions
 
 You can also print a formatted table of options with [`print_opts`](@ref) (beware long output)
 
-```Julia
-print_opts(opts)
-```
-```
-┌────────────┬──────────────┬──────────────────────────┬────────┬───────────────────────────┬──────────┬─────────┬─────────┬──────────┬──────────────────┬───────────────────┬───────────┬─────────────────────────┬──────────┬───────┬────────────┬───────────────────────────┬─────────┬───────────────────┬───────────────┬────────┬───────────┬───────────┬─────────────────┬─────────┐
-│ track_cost │ update_iters │ train_classes_separately │ minmax │ return_encoding_meta_info │    dtype │ nsweeps │  cutoff │ chi_init │         encoding │           rescale │ loss_grad │             data_bounds │ init_rng │     d │ exit_early │ encode_classes_separately │     eta │ sigmoid_transform │ aux_basis_dim │  bbopt │ log_level │ verbosity │ projected_basis │ chi_max │
-│       Bool │        Int64 │                     Bool │   Bool │                      Bool │ DataType │   Int64 │ Float64 │    Int64 │           Symbol │ Tuple{Bool, Bool} │    Symbol │ Tuple{Float64, Float64} │    Int64 │ Int64 │       Bool │                      Bool │ Float64 │              Bool │         Int64 │ Symbol │     Int64 │     Int64 │            Bool │   Int64 │
-├────────────┼──────────────┼──────────────────────────┼────────┼───────────────────────────┼──────────┼─────────┼─────────┼──────────┼──────────────────┼───────────────────┼───────────┼─────────────────────────┼──────────┼───────┼────────────┼───────────────────────────┼─────────┼───────────────────┼───────────────┼────────┼───────────┼───────────┼─────────────────┼─────────┤
-│      false │            1 │                    false │   true │                     false │  Float64 │       5 │ 1.0e-10 │        4 │ Legendre_No_Norm │     (false, true) │       KLD │              (0.0, 1.0) │     1234 │     5 │      false │                     false │    0.01 │              true │             2 │   TSGO │         3 │         1 │           false │      25 │
-└────────────┴──────────────┴──────────────────────────┴────────┴───────────────────────────┴──────────┴─────────┴─────────┴──────────┴──────────────────┴───────────────────┴───────────┴─────────────────────────┴──────────┴───────┴────────────┴───────────────────────────┴─────────┴───────────────────┴───────────────┴────────┴───────────┴───────────┴─────────────────┴─────────┘
+```jldoctest classification
+julia> print_opts(opts; long=false);
+┌─────────┬──────────────────┬─────────┬─────────┬───────────────────┬───────────┬───────┐
+│ nsweeps │         encoding │     eta │ chi_max │ sigmoid_transform │ loss_grad │     d │
+│   Int64 │           Symbol │ Float64 │   Int64 │              Bool │    Symbol │ Int64 │
+├─────────┼──────────────────┼─────────┼─────────┼───────────────────┼───────────┼───────┤
+│      10 │ Legendre_No_Norm │    0.01 │      25 │              true │       KLD │     5 │
+└─────────┴──────────────────┴─────────┴─────────┴───────────────────┴───────────┴───────┘
 
-julia> 
 ```
 
 ## Classification
@@ -147,19 +170,34 @@ classify(::TrainedMPS, ::AbstractMatrix)
 ```
 
 For example, for the noisy trendy sine from earlier:
-```Julia
+```jldoctest classification
 julia> predictions = classify(mps, X_test);
-julia> using Statistics
+
+julia> using StatsBase
+
 julia> mean(predictions .== y_test)
-0.925
+0.98
 ```
 
 ## Training with a custom basis
 To train with a custom basis, first, declare a custom basis with [`function_basis`](@ref), and pass it in as the last argument to [`fitMPS`](@ref). For this to work, the encoding hyperparameter must be set to `:Custom` in `MPSOptions`
 
-```Julia
-encoding = function_basis(...)
-fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), encoding)
+```jldoctest classification; filter=[r"random state 1234(.*)"s => "\n\n[...]"]
+using LegendrePolynomials
+function legendre_encode(x::Float64, d::Int)
+    # default legendre encoding: choose the first n-1 legendre polynomials
+
+    leg_basis = [Pl(x, i; norm = Val(:normalized)) for i in 0:(d-1)] 
+    
+    return leg_basis
+end
+custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), custom_basis)
+# output
+Generating initial weight MPS with bond dimension χ_init = 4
+        using random state 1234.
+
+[...]
 ```
 
 ## Docstrings

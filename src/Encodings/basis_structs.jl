@@ -215,15 +215,18 @@ for example, the polynomial coefficients for the Sahand-Legendre basis. This fun
 # Example
 The Legendre Polynomial Basis:
 
-```
-julia> Using LegendrePolynomials
-julia> function legendre_encode(x::Float64, d::Int)
+```jldoctest
+using MPSTime, LegendrePolynomials
+function legendre_encode(x::Float64, d::Int)
     # default legendre encoding: choose the first n-1 legendre polynomials
 
     leg_basis = [Pl(x, i; norm = Val(:normalized)) for i in 0:(d-1)] 
     
     return leg_basis
-julia> custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+end
+custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+# output
+Basis(Custom)
 ```
 
 """

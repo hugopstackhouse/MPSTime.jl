@@ -330,10 +330,10 @@ unless it contains a hyperparameter outside the range specified by `parameters`,
 Can either be an `nfolds`-long Vector of `[train_indices::Vector, validation_indices::Vector]` pairs, or a function that produces them, with the signature `foldmethod(Xs,ys, nfolds; rng::AbstractRNG)` \
 To clarify, the `tune` function determines the train/validation splits for the ith fold in the following way:
 ```
-Julia> folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
-Julia> train_inds, validation_inds = folds[i];
-Julia> X_train, y_train = Xs[train_inds, :], ys[train_inds];
-Julia> X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];
+julia> folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
+julia> train_inds, validation_inds = folds[i];
+julia> X_train, y_train = Xs[train_inds, :], ys[train_inds];
+julia> X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];
 ```
 
 ## Logging 

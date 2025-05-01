@@ -21,9 +21,9 @@ makedocs(
     pages = [
     "Introduction" => "index.md",
     "Classification" => "classification.md",
-    "Imputation" => "imputation.md",
+    # "Imputation" => "imputation.md",
     "Synthetic Data Generation" => "synthdatagen.md",
-    "Encodings" => "encodings.md",
+    # "Encodings" => "encodings.md",
     "Hyperparameter Tuning" => "hyperparameters.md",
     "Tools" => "tools.md",
     "Docstrings" => "docstrings.md",

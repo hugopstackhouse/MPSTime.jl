@@ -6,23 +6,23 @@ This tutorial for MPSTime will take you through tuning the hyperparameters of th
 
 For this tutorial, we'll be solving a classification hyperoptimisation problem and an imputation hyperoptimisation problem use the same noisy trendy sinusoid dataset from the [`Classification`](@ref Classification_top) and [`Imputation`](@ref Imputation_top) sections.
 
-```@repl hyperopt
+```julia hyperopt
 using MPSTime, Random
-rng = Xoshiro(1); # define trendy sine function
+rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance
-ntrain_instances = 300; # specify num training instances
-ntest_instances = 200; # specify num test instances
+ntrain_instances = 600; # specify num training instances
+ntest_instances = 300; # specify num test instances
 X_train = vcat(
-    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, rng=rng)[1],
-    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.9, rng=rng)[1]
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(12,15), rng=rng)[1],
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(16,19), rng=rng)[1]
 );
 y_train = vcat(
     fill(1, ntrain_instances ÷ 2),
     fill(2, ntrain_instances ÷ 2)
 );
 X_test = vcat(
-    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.1, rng=rng)[1],
-    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.9, rng=rng)[1]
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(12,15), rng=rng)[1],
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(16,19), rng=rng)[1]
 );
 y_test = vcat(
     fill(1, ntest_instances ÷ 2),
@@ -38,7 +38,7 @@ The hyperparameter tuning algorithms supported by MPSTime support every numerica
 
 The variables to optimise, along with their upper and lower bounds are specified with the syntax `params = (<variable_name_1>=(<lower bound>, <upper bound>))`, e.g.
 
-```@repl hyperopt
+```julia
 params = (
     eta=(1e-3, 1e-1), 
     d=(5,7), 
@@ -51,7 +51,9 @@ To solve real-world problems, the upper bounds on `d` and `chi_max` should be se
 To optimise the hyperparameters on your dataset, simply call tune():
 
 ```julia-repl
-julia> nfolds = 5
+julia> using Distributed
+julia> addprocs(5); @everywhere using MPSTime # Setup a small amount of parallisation
+julia> nfolds = 5;
 julia> best_params, cache = tune(
     X_train, 
     y_train, 
@@ -60,30 +62,30 @@ julia> best_params, cache = tune(
     MPSRandomSearch(); 
     objective=MisclassificationRate(), 
     maxiters=20, # for demonstration purposes only, typically this should be much larger
+    distribute_folds=true, # enable distributed computing
     logspace_eta=true
 );
-# iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-# iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-# iter 1, cvfold 1: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 68.38s (train=66.85s, loss=1.53s)
-# iter 1, cvfold 2: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-# iter 1, cvfold 2: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.89s (train=39.81s, loss=0.08s)
-# iter 1, cvfold 3: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-# iter 1, cvfold 3: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 38.94s (train=38.86s, loss=0.08s)
-# iter 1, cvfold 4: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-# iter 1, cvfold 4: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.12s (train=39.04s, loss=0.08s)
-# iter 1, cvfold 5: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-# iter 1, cvfold 5: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.07s (train=38.99s, loss=0.08s)
-# iter 1, t=232.71: Mean CV Loss: 0.19666666666666666
-# iter 2, cvfold 1: training MPS with (chi_max = 24, d = 7, eta = 0.023357214690901226)...
-# [...]
-# iter 20, cvfold 5: finished. MPS (chi_max = 20, d = 5, eta = 0.018329807108324356) finished in 23.75s (train=23.68s, loss=0.07s))
-# iter 20, t=2797.13: Mean CV Loss: 0.32666666666666666
+iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+iter 1, cvfold 1: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 68.38s (train=66.85s, loss=1.53s)
+iter 1, cvfold 2: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+iter 1, cvfold 2: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.89s (train=39.81s, loss=0.08s)
+iter 1, cvfold 3: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+iter 1, cvfold 3: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 38.94s (train=38.86s, loss=0.08s)
+iter 1, cvfold 4: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+iter 1, cvfold 4: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.12s (train=39.04s, loss=0.08s)
+iter 1, cvfold 5: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
+iter 1, cvfold 5: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.07s (train=38.99s, loss=0.08s)
+iter 1, t=232.71: Mean CV Loss: 0.19666666666666666
+iter 2, cvfold 1: training MPS with (chi_max = 24, d = 7, eta = 0.023357214690901226)...
+[...]
+iter 20, cvfold 5: finished. MPS (chi_max = 20, d = 5, eta = 0.018329807108324356) finished in 23.75s (train=23.68s, loss=0.07s)
+iter 20, t=2797.13: Mean CV Loss: 0.32666666666666666
 
-best_params
-# (chi_max = 23,
-#  d = 7,
-#  eta = 0.008858667904100823,)
-
+julia> best_params
+(chi_max = 23,
+ d = 7,
+ eta = 0.008858667904100823,)
 ```
 which returns `best params`: a named tuple containing the optimised hyperparameters, and `cache`: a dictionary that saves the mean loss of every tested hyperparameter combination.
 
@@ -181,8 +183,9 @@ The imputation tuning loss is the average of computing the mean absolute error o
 
 **Example: Calling tune with percentages missing**
 Tune the MPS on an imputation problem with randomly selected 5%, 15%, 25%, ... , 95% long missing blocks.
-```julia-repl
-julia> nfolds = 5
+```julia
+nfolds = 5
+params = (d=(8,12), chi_max=(30,50))
 best_params, cache = tune(
     X_train, 
     y_train, 
@@ -228,7 +231,7 @@ eval_loss(
     windows; 
     p_fold=nothing, 
     distribute::Bool=false
-) -> Union{Float64, Vector{Float64}
+) -> Union{Float64, Vector{Float64}}
 ```
 
 As a simple example, we could implement a custom misclassification rate with the following:

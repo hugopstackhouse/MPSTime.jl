@@ -220,7 +220,13 @@ function plot_conf_mat(confmat::Matrix)
 end
 
 
-function get_training_summary(mps::MPS, training_pss::AnyTimeSeriesIterable, testing_pss::AnyTimeSeriesIterable; print_stats=false,io::IO=stdin)
+function get_training_summary(
+    io::Union{IO, Nothing},
+    mps::MPS, 
+    training_pss::AnyTimeSeriesIterable, 
+    testing_pss::AnyTimeSeriesIterable; 
+    print_stats=false,
+    )
     # get final traing acc, final training loss
 
     Ws, l_ind = expand_label_index(mps)
@@ -248,26 +254,61 @@ function get_training_summary(mps::MPS, training_pss::AnyTimeSeriesIterable, tes
 
     # NOTE CONFMAT IS R(i, j) == countnz((gt .== i) & (pred .== j)). So rows (i) are groudn truth and columns (j) are preds
     # tables 
-    pretty_table(io,overlapmat;
-                    title="Overlap Matrix",
-                    title_alignment=:c,
-                    title_same_width_as_table=true,
-                    header = ["|ψ$n⟩" for n in labels],
-                    row_labels = ["⟨ψ$n|" for n in labels],
-                    alignment=:c,
-                    body_hlines=Vector(1:nclasses),
-                    highlighters = Highlighter(f      = (data, i, j) -> (i == j),
-                    crayon = crayon"bold" ),
-                    formatters = ft_printf("%5.3e"))
+    if isnothing(io) # As I rather unpleasantly discovered in testing: pretty_table(stdin,foo) =/= pretty_table(foo)
+        println()
+        pretty_table(
+            overlapmat;
+            title="Overlap Matrix",
+            title_alignment=:c,
+            title_same_width_as_table=true,
+            header = ["|ψ$n⟩" for n in labels],
+            row_labels = ["⟨ψ$n|" for n in labels],
+            alignment=:c,
+            body_hlines=Vector(1:nclasses),
+            highlighters = Highlighter(f      = (data, i, j) -> (i == j),
+            crayon = crayon"bold" ),
+            formatters = ft_printf("%5.3e")
+        )
 
-    pretty_table(io,confmat;
-    title="Confusion Matrix",
-    title_alignment=:c,
-    title_same_width_as_table=true,
-    header = ["Pred. |$n⟩" for n in labels],
-    row_labels = ["True |$n⟩" for n in labels],
-    body_hlines=Vector(1:nclasses),
-    highlighters = Highlighter(f = (data, i, j) -> (i == j), crayon = crayon"bold green" ))
+        pretty_table(
+            confmat;
+            title="Confusion Matrix",
+            title_alignment=:c,
+            title_same_width_as_table=true,
+            header = ["Pred. |$n⟩" for n in labels],
+            row_labels = ["True |$n⟩" for n in labels],
+            body_hlines=Vector(1:nclasses),
+            highlighters = Highlighter(f = (data, i, j) -> (i == j), crayon = crayon"bold green" )
+        )
+
+    else
+        println(io)
+        pretty_table(
+            io,
+            overlapmat;
+            title="Overlap Matrix",
+            title_alignment=:c,
+            title_same_width_as_table=true,
+            header = ["|ψ$n⟩" for n in labels],
+            row_labels = ["⟨ψ$n|" for n in labels],
+            alignment=:c,
+            body_hlines=Vector(1:nclasses),
+            highlighters = Highlighter(f      = (data, i, j) -> (i == j),
+            crayon = crayon"bold" ),
+            formatters = ft_printf("%5.3e")
+        )
+
+        pretty_table(io,
+            confmat;
+            title="Confusion Matrix",
+            title_alignment=:c,
+            title_same_width_as_table=true,
+            header = ["Pred. |$n⟩" for n in labels],
+            row_labels = ["True |$n⟩" for n in labels],
+            body_hlines=Vector(1:nclasses),
+            highlighters = Highlighter(f = (data, i, j) -> (i == j), crayon = crayon"bold green" )
+        )
+    end
 
 
     # TP, TN, FP, FN FOR TEST SET 
@@ -292,7 +333,11 @@ function get_training_summary(mps::MPS, training_pss::AnyTimeSeriesIterable, tes
 
     if print_stats
         statsp = Dict(String(key)=>[stats[key]] for key in filter((s)->s!=:confmat,keys(stats)))
-        pretty_table(io,statsp)
+        if isnothing(io)
+            pretty_table(statsp)
+        else
+            pretty_table(io,statsp)
+        end
         # println("Testing Accuracy: $acc_testing")
         # println("Training Accuracy: $acc_training")
         # println("Precision: $prec")
@@ -309,26 +354,28 @@ end
 
 """
 ```Julia
-get_training_summary(mps::TrainedMPS, 
-                     test_states::EncodedTimeSeriesSet;  
-                     print_stats::Bool=false, 
-                     io::IO=stdin) -> stats::Dict
+get_training_summary(
+    [io::IO],
+    mps::TrainedMPS, 
+    test_states::EncodedTimeSeriesSet;  
+    print_stats::Bool=false
+    ) -> stats::Dict
 ```
 
 Print a summary of the training process of `mps`, with performane evaluated on `test_states`.
 """
-get_training_summary(mps::TrainedMPS, X_test::EncodedTimeSeriesSet;  print_stats::Bool=false, io::IO=stdin) = get_training_summary(mps.mps, mps.train_data.timeseries, X_test.timeseries; print_stats=print_stats, io=io)
+get_training_summary(io::IO, mps::TrainedMPS, X_test::EncodedTimeSeriesSet;  print_stats::Bool=false) = get_training_summary(io, mps.mps, mps.train_data.timeseries, X_test.timeseries; print_stats=print_stats)
+get_training_summary(mps::TrainedMPS, X_test::EncodedTimeSeriesSet;  print_stats::Bool=false) = get_training_summary(nothing, mps.mps, mps.train_data.timeseries, X_test.timeseries; print_stats=print_stats)
 
 
 """
 ```Julia
-sweep_summary(info; io::IO=stdin)
+sweep_summary([io::IO], info)
 ```
-
 Print a pretty summary of what happened in every sweep
 
 """
-function sweep_summary(info;io::IO=stdin)
+function sweep_summary(io::Union{Nothing,IO}, info)
     
     nsweeps = length(info["time_taken"]) - 2
     row_labels = ["Train Accuracy", "Test Accuracy", "Train KL Div.", "Test KL Div.", "Time taken"]
@@ -340,33 +387,69 @@ function sweep_summary(info;io::IO=stdin)
         data[i,:] = vcat(info[key], [mean(info[key][2:end-1])])
     end
 
-    h1 = Highlighter((data, i, j) -> j < length(header) && data[i, j] == maximum(data[i,1:(end-1)]),
-                        bold       = true,
-                        foreground = :red )
+    h1 = Highlighter(
+        (data, i, j) -> j < length(header) && data[i, j] == maximum(data[i,1:(end-1)]),
+        bold       = true,
+        foreground = :red 
+    )
 
-    h2 = Highlighter((data, i, j) -> j < length(header) && data[i, j] == minimum(data[i,1:(end-1)]),
-    bold       = true,
-    foreground = :blue )
-
-    pretty_table(io,data;
-    row_label_column_title = "",
-    header = header,
-    row_labels = row_labels,
-    body_hlines = Vector(1:length(row_labels)),
-    highlighters = (h1,h2),
-    alignment=:c)
+    h2 = Highlighter(
+        (data, i, j) -> j < length(header) && data[i, j] == minimum(data[i,1:(end-1)]),
+        bold       = true,
+        foreground = :blue
+    )
+    if isnothing(io)
+        pretty_table(
+            io,
+            data;
+            row_label_column_title = "",
+            header = header,
+            row_labels = row_labels,
+            body_hlines = Vector(1:length(row_labels)),
+            highlighters = (h1,h2),
+            alignment=:c
+        )
+    else
+        pretty_table(
+            io,
+            data;
+            row_label_column_title = "",
+            header = header,
+            row_labels = row_labels,
+            body_hlines = Vector(1:length(row_labels)),
+            highlighters = (h1,h2),
+            alignment=:c
+        )
+    end
     #formatters = ft_printf("%.3e"))
 
 end
 
-"""
-    print_opts(opts::AbstractMPSOptions; io::IO=stdin)
-
-Print the MPSOptions struct in a table.
+sweep_summary(info) = sweep_summary(nothing, info)
 
 """
-function print_opts(opts::AbstractMPSOptions; io::IO=stdin)
-    optsD = Dict(String(key)=>[getfield(opts, key)] for key in  fieldnames(typeof(opts)))
+    print_opts([io::IO], opts::AbstractMPSOptions; long::Bool=false)
+
+Print the MPSOptions struct in a table. Summarises (`long=false`) by default.
+
+"""
+function print_opts(opts::AbstractMPSOptions;  long::Bool=false)
+    if long
+        params = fieldnames(typeof(opts))
+    else
+        params = [:chi_max, :d, :eta, :nsweeps,:encoding, :sigmoid_transform, :loss_grad]
+    end
+    optsD = Dict(String(key)=>[getfield(opts, key)] for key in params)
+    return pretty_table(optsD)
+end
+
+function print_opts(io::IO, opts::AbstractMPSOptions;  long::Bool=false)
+    if long
+        params = fieldnames(typeof(opts))
+    else
+        params = [:chi_max, :d, :eta, :nsweeps,:encoding, :sigmoid_transform, :loss_grad]
+    end
+    optsD = Dict(String(key)=>[getfield(opts, key)] for key in params)
     return pretty_table(io, optsD)
 end
 

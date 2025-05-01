@@ -350,7 +350,6 @@ end
 function impute_med_and_get_cdf!(
         mps::MPS,
         x_samps::AbstractVector{Float64},
-        imputation_method::Function,
         opts::Options,
         enc_args::AbstractVector,
         x_guess_range::EncodedDataRange,
@@ -445,6 +444,7 @@ function get_rdms_with_med(
         timeseries::AbstractVector{<:Number},
         timeseries_enc::MPS,
         imputation_sites::Vector{Int};
+        impute_order::Symbol=:forwards,
         get_wmad::Bool=true
     )
     
@@ -457,6 +457,7 @@ function get_rdms_with_med(
         enc_args,
         x_guess_range,
         imputation_sites;
+        impute_order=impute_order,
         norm=false,
         get_wmad=get_wmad
     )

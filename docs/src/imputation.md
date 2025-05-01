@@ -16,18 +16,24 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 The first step is to train an MPS. 
 Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid (we discuss the demonstration dataset more in [`Classification`](@ref nts_demo)).
 
-```jldoctest imputation
+```jldoctest imputation; filter=[r"Training KL Div\. 129\.97381321235574 \| Training acc\. 1\.0\.(.*)"s => "Training KL Div. 129.97381321235574 | Training acc. 1.0.\n\n[...]"]
 using MPSTime, Random 
 rng = Xoshiro(1); # fix rng seed
-ntimepoints = 100; # specify number of samples per instance
-ntrain_instances = 300; # specify num training instances
-ntest_instances = 200; # specify num test instances
-X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=[-3,0,3], period=(12π,15π), rng=rng)[1];
-X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=[-3,0,3], period=(12π,15π), rng=rng)[1];
+ntimepoints = 100; # specify number of samples per instance.
+ntrain_instances = 600; # specify num training instances
+ntest_instances = 300; # specify num test instances
+X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
+X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
 # hyper parameters and training
-opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false); # disable sigmoid transform data preprocessing
-mps, info, test_states= fitMPS(X_train, opts);
-# output 
+opts = MPSOptions(d=12, chi_max=40, sigmoid_transform=false); # disable sigmoid transform data preprocessing
+mps, info, test_states= fitMPS(X_train, opts)
+# output
+Generating initial weight MPS with bond dimension χ_init = 4
+        using random state 1234.
+Initialising train states.
+Using 1 iterations per update.
+Training KL Div. 129.97381321235574 | Training acc. 1.0.
+
 [...]
 ```
 
@@ -38,11 +44,11 @@ Initialising train states.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                          Summary:
 
- - Dataset has 300 training samples and 100 testing samples.
+ - Dataset has 600 training samples and 300 testing samples.
 Slicing MPS into individual states...
  - 1 class(es) were detected.
  - Time independent encoding - Legendre - detected.
- - d = 10, chi_max = 40
+ - d = 12, chi_max = 40
 Re-encoding the training data to get the encoding arguments...
 
  Created 1 ImputationProblem struct(s) containing class-wise mps and test samples.
@@ -81,8 +87,20 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     plot_fits=true, # whether to plot the fits
     get_wmad=true # when method=:median, this uses the Weighted Median Absolute Deviation (WMAD) to compute the prediction error.
 );
+
+# Pretty-print the stats
+using PrettyTables
+pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow bold", tf=tf_unicode_rounded);
 # output
 
+╭─────────┬──────────╮
+│  Metric │    Value │
+├─────────┼──────────┤
+│     MAE │ 0.202728 │
+│    MAPE │ 0.250468 │
+│  NN_MAE │ 0.249608 │
+│ NN_MAPE │  0.29341 │
+╰─────────┴──────────╯
 ```
 Several outputs are returned from `MPS_impute`:
 - `imputed_ts`: The imputed time-series instance, containing the original data points and the predicted values.
@@ -91,21 +109,8 @@ Several outputs are returned from `MPS_impute`:
 - `stats`: A collection of statistical metrics (MAE and MAPE) evaluating imputation performance with respect to a ground truth. Includes benchmark performance when `NN_baseline=true`.
 - `plots`: Stores plot object(s) in an array for visualization when `plot_fits=true`.
 
-We can inspect the imputation performance in a summary table:
-```jldoctest imputation
-julia> using PrettyTables
-julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow bold", tf=tf_unicode_rounded);
-╭─────────┬──────────╮
-│  Metric │    Value │
-├─────────┼──────────┤
-│     MAE │ 0.227791 │
-│    MAPE │  4.89358 │
-│  NN_MAE │ 0.249707 │
-│ NN_MAPE │  3.57851 │
-╰─────────┴──────────╯
 
-```
-The MAE and MAPE are the Mean Absolute Error and Mean Absolute Percentage Error for the MPS prediction, while the NN_ prefix corresponds to the same errors for the 1-Nearest Neighbours benchmark. In this case, MAPE is an unreliable measure of error as the data goes through zero. 
+The MAE and MAPE in the 'stats' table are the Mean Absolute Error and Mean Absolute Percentage Error for the MPS prediction, while the NN_ prefix corresponds to the same errors for the 1-Nearest Neighbours benchmark. In this case, MAPE is an unreliable measure of error as the data goes through zero. 
 
 
 To plot the imputed time series, we can call the plot function as follows: 
@@ -143,12 +148,11 @@ pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow b
 ╭─────────┬──────────╮
 │  Metric │    Value │
 ├─────────┼──────────┤
-│     MAE │ 0.198301 │
-│    MAPE │ 0.348419 │
-│  NN_MAE │ 0.246748 │
-│ NN_MAPE │ 0.400026 │
+│     MAE │  0.18148 │
+│    MAPE │ 0.556966 │
+│  NN_MAE │   0.2133 │
+│ NN_MAPE │ 0.687765 │
 ╰─────────┴──────────╯
-
 ```
 ```@example imputation
 plots[1]
@@ -157,10 +161,10 @@ plots[1]
 
 ### Individual Point Imputation
 To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
-```jldoctest imputation
-impute_sites = [10]; # only impute t = 10
-impute_sites = [10, 25, 50]; # impute multiple individual points
-# output
+```jldoctest imputation;
+julia> impute_sites = [10] # only impute t = 10
+
+julia> impute_sites = [10, 25, 50] # impute multiple individual points
 ```
 
 
@@ -187,25 +191,25 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
 );
 
 stats
-# output 
+# output
 10-element Vector{Any}:
- Dict(:MAE => 1.2200775502599968, :MAPE => 3.733324659703926)
- Dict(:MAE => 0.5716838167183007, :MAPE => 1.6168922829599235)
- Dict(:MAE => 0.71267944648452, :MAPE => 2.154079307094404)
- Dict(:MAE => 0.8714221674823085, :MAPE => 2.7483887874557795)
- Dict(:MAE => 0.45241502865552063, :MAPE => 1.3617174021384433)
- Dict(:MAE => 0.6102123471093596, :MAPE => 2.0809950956801977)
- Dict(:MAE => 0.4704837916235067, :MAPE => 1.570459143512098)
- Dict(:MAE => 1.1688768175333726, :MAPE => 3.7871590127017254)
- Dict(:MAE => 0.9675089655655753, :MAPE => 2.6546703922049772)
- Dict(:MAE => 1.5157201660193944, :MAPE => 5.092485476941726)
+ Dict(:MAE => 0.33446594736920693, :MAPE => 0.5057064702709678)
+ Dict(:MAE => 0.3626237140282149, :MAPE => 0.5892617834698666)
+ Dict(:MAE => 0.28195554514265253, :MAPE => 0.3821676201904901)
+ Dict(:MAE => 0.30408113593013253, :MAPE => 0.519375916352665)
+ Dict(:MAE => 0.25048956514895077, :MAPE => 0.296674321972477)
+ Dict(:MAE => 0.2806866025160525, :MAPE => 0.4663978509277398)
+ Dict(:MAE => 0.2737188428077452, :MAPE => 0.29962643312446235)
+ Dict(:MAE => 0.27261701293545404, :MAPE => 0.3811724045817516)
+ Dict(:MAE => 0.3024822223793851, :MAPE => 0.3766945970915321)
+ Dict(:MAE => 0.2880940903525119, :MAPE => 0.43059726544708654)
 
 ```
 
 ```@example imputation
 plots[1]
 ```
-![](./figures/ITS_impute.svg)
+<!-- ![](./figures/ITS_impute.svg) -->
 
 
 
@@ -215,22 +219,26 @@ It can be interesting to inspect the probability distribution being sampled from
 To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain.
 
 ```jldoctest imputation
-cdfs, ts, pred_err, target = get_cdfs(
+julia> using Plots
+
+julia> cdfs, ts, pred_err, target = get_cdfs(
     imp, 
     class, 
     instance_idx, 
     impute_sites
 );
 
-xvals = imp.x_guess_range.xvals[1:10:end]
+```
 
+```@example imputation
+xvals = imp.x_guess_range.xvals[1:10:end]
 plot(xvals, cdfs[1][1:10:end]; legend=:none)
 p = last([plot!(xvals, cdfs[i][1:10:end]) for i in eachindex(cdfs)])
 ylabel!("cdf(x)")
 xlabel!("x_t")
 title!("CDF at each time point.")
 ```
-![](./figures/cdfs.svg)
+<!-- ![](./figures/cdfs.svg) -->
 
 
 ## Docstrings 
