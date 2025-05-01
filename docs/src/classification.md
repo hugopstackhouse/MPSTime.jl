@@ -115,7 +115,7 @@ You can use also `test_states` to print a summary of the MPS performance on the 
 ```jldoctest classification
 julia> get_training_summary(mps, test_states; print_stats=true);   
 
-          Overlap Matrix
+         Overlap Matrix
 ┌──────┬───────────┬───────────┐
 │      │   |ψ1⟩    │   |ψ2⟩    │
 ├──────┼───────────┼───────────┤
@@ -182,7 +182,7 @@ julia> mean(predictions .== y_test)
 ## Training with a custom basis
 To train with a custom basis, first, declare a custom basis with [`function_basis`](@ref), and pass it in as the last argument to [`fitMPS`](@ref). For this to work, the encoding hyperparameter must be set to `:Custom` in `MPSOptions`
 
-```jldoctest classification; filter=[r"random state 1234(.*)"s => "\n\n[...]"]
+```jldoctest classification; filter=[r"random state 1234(.*)"s => "\n\n[...]"], setup=:(X_train=X_train[1:3,1:5]; y_train=y_train[1:3])
 using LegendrePolynomials
 function legendre_encode(x::Float64, d::Int)
     # default legendre encoding: choose the first n-1 legendre polynomials

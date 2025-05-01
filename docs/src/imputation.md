@@ -161,7 +161,7 @@ plots[1]
 
 ### Individual Point Imputation
 To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
-```jldoctest imputation;
+```jldoctest imputation
 julia> impute_sites = [10] # only impute t = 10
 
 julia> impute_sites = [10, 25, 50] # impute multiple individual points
@@ -222,11 +222,14 @@ To enable this, we provide the [`get_cdfs`](@ref) function, which works very sim
 julia> using Plots
 
 julia> cdfs, ts, pred_err, target = get_cdfs(
-    imp, 
-    class, 
-    instance_idx, 
-    impute_sites
-);
+ERROR: ParseError:
+# Error @ none:1:40
+cdfs, ts, pred_err, target = get_cdfs(
+#
+└ ── Expected `)`
+Stacktrace:
+ [1] top-level scope
+   @ none:1
 
 ```
 
