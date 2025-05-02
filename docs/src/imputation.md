@@ -163,8 +163,14 @@ plots[1]
 To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
 ```jldoctest imputation
 julia> impute_sites = [10] # only impute t = 10
+1-element Vector{Int64}:
+ 10
 
 julia> impute_sites = [10, 25, 50] # impute multiple individual points
+3-element Vector{Int64}:
+ 10
+ 25
+ 50
 ```
 
 
