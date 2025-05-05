@@ -217,29 +217,27 @@ function fitMPS_IT(
     if opts.log_level > 0
 
         # compute initial training and validation acc/loss
-        init_train_loss, init_train_acc = MSE_loss_acc(W, training_states)
-        train_KL_div = KL_div(W, training_states)
+        init_train_loss, init_KL_div, init_train_acc = MSE_loss_acc(W, training_states)
         
         push!(training_information["train_loss"], init_train_loss)
         push!(training_information["train_acc"], init_train_acc)
         push!(training_information["time_taken"], 0.)
-        push!(training_information["train_KL_div"], train_KL_div)
+        push!(training_information["train_KL_div"], init_KL_div)
 
 
         if has_test 
-            init_test_loss, init_test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-            init_KL_div = KL_div(W, testing_states)
+            init_test_loss, init_test_KL_div, init_test_acc, conf = MSE_loss_acc_conf(W, testing_states)
 
             push!(training_information["test_loss"], init_test_loss)
             push!(training_information["test_acc"], init_test_acc)
-            push!(training_information["test_KL_div"], init_KL_div)
+            push!(training_information["test_KL_div"], init_test_KL_div)
             push!(training_information["test_conf"], conf)
         end
     
 
         #print loss and acc
         if verbosity > -1
-            println("Training KL Div. $train_KL_div | Training acc. $init_train_acc.")# | Training MSE: $init_train_loss." )
+            println("Training KL Div. $init_KL_div | Training acc. $init_train_acc.")# | Training MSE: $init_train_loss." )
 
             if has_test 
                 println("Test KL Div. $init_KL_div | Testing acc. $init_test_acc.")#  | Testing MSE: $init_test_loss." )
@@ -370,8 +368,7 @@ function fitMPS_IT(
         if opts.log_level > 0
 
             # compute the loss and acc on both training and validation sets
-            train_loss, train_acc = MSE_loss_acc(W, training_states)
-            train_KL_div = KL_div(W, training_states)
+            train_loss, train_KL_div, train_acc = MSE_loss_acc(W, training_states)
 
 
             push!(training_information["train_loss"], train_loss)
@@ -381,8 +378,7 @@ function fitMPS_IT(
 
 
             if has_test 
-                test_loss, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-                test_KL_div = KL_div(W, testing_states)
+                test_loss, test_KL_div, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
         
                 push!(training_information["test_loss"], test_loss)
                 push!(training_information["test_acc"], test_acc)
@@ -413,8 +409,7 @@ function fitMPS_IT(
     if opts.log_level > 0
 
         # compute the loss and acc on both training and validation sets
-        train_loss, train_acc = MSE_loss_acc(W, training_states)
-        train_KL_div = KL_div(W, training_states)
+        train_loss, train_KL_div, train_acc = MSE_loss_acc(W, training_states)
 
 
         push!(training_information["train_loss"], train_loss)
@@ -424,8 +419,7 @@ function fitMPS_IT(
 
 
         if has_test 
-            test_loss, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
-            test_KL_div = KL_div(W, testing_states)
+            test_loss, test_KL_div, test_acc, conf = MSE_loss_acc_conf(W, testing_states)
 
             push!(training_information["test_loss"], test_loss)
             push!(training_information["test_acc"], test_acc)
