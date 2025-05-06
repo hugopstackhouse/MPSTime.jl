@@ -35,15 +35,7 @@ for fold in range(30):
     test_idxs = np.loadtxt(f"Astronomy/resample{fold}Indices_TEST.txt")
     fold_idxs[fold] = {"train": train_idxs.astype(int), "test": test_idxs.astype(int)}
 
-#params = {
-#    "depth": [2, 4, 6],
-#    "n_filters": [8, 16, 32],
-#    "kernel_size": [8, 16, 32, 64],
-#}
-
-inceptionTime = InceptionTimeClassifier(verbose=False, batch_size=16, random_state=0)
-#cv = KFold(n_splits=5, random_state=42, shuffle=True)
-#inceptionCV = RandomizedSearchCV(inceptionTime, params, n_iter=15, cv=cv, verbose=1)
+inceptionTimeBase = InceptionTimeClassifier(verbose=False, batch_size=16, random_state=0)
 
 fold_scores = {}
 for fold in range(30):
@@ -59,8 +51,10 @@ for fold in range(30):
     X_train = zscore(X_train, axis=1)
     X_test = zscore(X_test, axis=1)
 
-    inceptionTime.fit(X_train, y_train)
-    score = inceptionTime.score(X_test, y_test) # score the best estimator
+    InceptionTimeModel = inceptionTimeBase.clone()
+    InceptionTimeModel.fit(X_train, y_train)
+    score = InceptionTimeModel.score(X_test, y_test) # score the best estimator
+    
     fold_scores[fold] = score
     print(f"Finished fold {fold}, Score: {score}")
 
