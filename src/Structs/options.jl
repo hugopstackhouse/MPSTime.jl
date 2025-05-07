@@ -348,6 +348,7 @@ function Options(m::MPSOptions)
 end
 
 """Convert the internal Options type into a serialisable MPSOptions."""
+
 function MPSOptions(opts::Options,)
     properties = propertynames(opts)
     properties = filter(s -> !(s in [:encoding, :bbopt, :loss_grad]), properties)
@@ -360,7 +361,12 @@ function MPSOptions(opts::Options,)
     return mopts
 end
 
-"""Convert a named tuple (:option=value) to an MPSOptions object"""
+"""
+```julia
+MPSOptions(params::NamedTuple) -> MPSOptions
+```
+Convert the named tuple `params` with format (:option1=value1, :option2=value2,...) to an MPSOptions object.
+"""
 MPSOptions(params::NamedTuple) = _set_options(MPSOptions(); params...)
 
 # ability to "modify" options. Useful in very specific cases.

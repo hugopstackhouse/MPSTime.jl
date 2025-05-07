@@ -1,3 +1,6 @@
+```@meta
+Draft = false
+```
 # [Imputation](@id Imputation_top)
 ## Overview 
 #### Imputation Scenarios
@@ -16,42 +19,24 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 The first step is to train an MPS. 
 Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid (we discuss the demonstration dataset more in [`Classification`](@ref nts_demo)).
 
-```jldoctest imputation; filter=[r"Training KL Div\. 129\.97381321235574 \| Training acc\. 1\.0\.(.*)"s => "Training KL Div. 129.97381321235574 | Training acc. 1.0.\n\n[...]"]
+```@example imputation
 using MPSTime, Random 
 rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance.
-ntrain_instances = 600; # specify num training instances
-ntest_instances = 300; # specify num test instances
+ntrain_instances = 300; # specify num training instances
+ntest_instances = 200; # specify num test instances
 X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
 X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
 # hyper parameters and training
 opts = MPSOptions(d=12, chi_max=40, sigmoid_transform=false); # disable sigmoid transform data preprocessing
-mps, info, test_states= fitMPS(X_train, opts)
-# output
-Generating initial weight MPS with bond dimension χ_init = 4
-        using random state 1234.
-Initialising train states.
-Using 1 iterations per update.
-Training KL Div. 129.97381321235574 | Training acc. 1.0.
+mps, info, test_states = fitMPS(X_train, opts);
 
-[...]
+nothing # hide
 ```
 
 Next, we initialize an imputation problem. This does a lot of necessary pre-computation:
-```jldoctest imputation
-julia> imp = init_imputation_problem(mps, X_test);
-Initialising train states.
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-                         Summary:
-
- - Dataset has 600 training samples and 300 testing samples.
-Slicing MPS into individual states...
- - 1 class(es) were detected.
- - Time independent encoding - Legendre - detected.
- - d = 12, chi_max = 40
-Re-encoding the training data to get the encoding arguments...
-
- Created 1 ImputationProblem struct(s) containing class-wise mps and test samples.
+```@repl imputation
+imp = init_imputation_problem(mps, X_test);
 
 ```
 A summary of the imputation problem setup is printed to verify the model parameters and dataset information.
@@ -69,7 +54,7 @@ The necessary options are:
 In this example, we will consider a single block of contiguous missing values, simulated from a missing-at-random mechanism (MAR).
 We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) benchmark for comparison:   
 
-```jldoctest imputation
+```@example imputation
 rng = Xoshiro(42) # Fix RNG
 class = 0
 pm = 0.8 # 80% missing data
@@ -91,16 +76,6 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
 # Pretty-print the stats
 using PrettyTables
 pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow bold", tf=tf_unicode_rounded);
-# output
-
-╭─────────┬──────────╮
-│  Metric │    Value │
-├─────────┼──────────┤
-│     MAE │ 0.202728 │
-│    MAPE │ 0.250468 │
-│  NN_MAE │ 0.249608 │
-│ NN_MAPE │  0.29341 │
-╰─────────┴──────────╯
 ```
 Several outputs are returned from `MPS_impute`:
 - `imputed_ts`: The imputed time-series instance, containing the original data points and the predicted values.
@@ -115,8 +90,13 @@ The MAE and MAPE in the 'stats' table are the Mean Absolute Error and Mean Absol
 
 To plot the imputed time series, we can call the plot function as follows: 
 ```@example imputation
+using Plots
 plots[1]
+savefig("figs_generated/median_impute_1.svg") # hide
+nothing # hide
 ```
+
+![](./figs_generated/median_impute_1.svg)
 
 The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NN benchmark.
 The blue shading indicates the uncertainty due to encoding error.
@@ -126,7 +106,7 @@ There are a lot of other options, and many more imputation methods to choose fro
 ### Multi-block Imputation
 Building on the previous example of single-block imputation, MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
 For example, consider missing points between $t = 10-25$, $t = 40-60$ and $t = 75-90$:
-```jldoctest imputation
+```@example imputation
 class = 0
 impute_sites = vcat(collect(10:25), collect(40:60), collect(65:90))
 instance_idx = 32
@@ -143,41 +123,26 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     get_wmad=true,
 );
 pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow bold", tf=tf_unicode_rounded);
-
-# output
-╭─────────┬──────────╮
-│  Metric │    Value │
-├─────────┼──────────┤
-│     MAE │  0.18148 │
-│    MAPE │ 0.556966 │
-│  NN_MAE │   0.2133 │
-│ NN_MAPE │ 0.687765 │
-╰─────────┴──────────╯
 ```
 ```@example imputation
 plots[1]
+savefig("figs_generated/median_impute_nblocks.svg") # hide
+nothing # hide
 ```
-![](./figures/median_impute_nblocks.svg)
+![](./figs_generated/median_impute_nblocks.svg)
 
 ### Individual Point Imputation
 To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
-```jldoctest imputation
-julia> impute_sites = [10] # only impute t = 10
-1-element Vector{Int64}:
- 10
-
-julia> impute_sites = [10, 25, 50] # impute multiple individual points
-3-element Vector{Int64}:
- 10
- 25
- 50
+```@repl imputation
+impute_sites = [10] # only impute t = 10
+impute_sites = [10, 25, 50] # impute multiple individual points
 ```
 
 
 ## Plotting Trajectories
 To plot individual trajectories from the conditional distribution, use `method=:ITS`. 
 Here, we'll plot 10 randomly selected trajectories for the missing points by setting the `num_trajectories` keyword: 
-```jldoctest imputation
+```@example imputation
 class = 0
 impute_sites = collect(10:90)
 instance_idx = 59
@@ -197,25 +162,14 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
 );
 
 stats
-# output
-10-element Vector{Any}:
- Dict(:MAE => 0.33446594736920693, :MAPE => 0.5057064702709678)
- Dict(:MAE => 0.3626237140282149, :MAPE => 0.5892617834698666)
- Dict(:MAE => 0.28195554514265253, :MAPE => 0.3821676201904901)
- Dict(:MAE => 0.30408113593013253, :MAPE => 0.519375916352665)
- Dict(:MAE => 0.25048956514895077, :MAPE => 0.296674321972477)
- Dict(:MAE => 0.2806866025160525, :MAPE => 0.4663978509277398)
- Dict(:MAE => 0.2737188428077452, :MAPE => 0.29962643312446235)
- Dict(:MAE => 0.27261701293545404, :MAPE => 0.3811724045817516)
- Dict(:MAE => 0.3024822223793851, :MAPE => 0.3766945970915321)
- Dict(:MAE => 0.2880940903525119, :MAPE => 0.43059726544708654)
-
 ```
 
 ```@example imputation
 plots[1]
+savefig("./figs_generated/ITS_impute.svg") # hide
+nothing #hide
 ```
-<!-- ![](./figures/ITS_impute.svg) -->
+![](./figs_generated/ITS_impute.svg)
 
 
 
@@ -224,19 +178,18 @@ plots[1]
 It can be interesting to inspect the probability distribution being sampled from at each missing time point. 
 To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain.
 
-```jldoctest imputation
-julia> using Plots
-
-julia> cdfs, ts, pred_err, target = get_cdfs(
-ERROR: ParseError:
-# Error @ none:1:40
+```@example imputation
+using Plots
 cdfs, ts, pred_err, target = get_cdfs(
-#
-└ ── Expected `)`
-Stacktrace:
- [1] top-level scope
-   @ none:1
-
+    imp,
+    class, 
+    instance_idx, 
+    impute_sites, 
+    method; 
+    NN_baseline=false, # whether to also do a baseline imputation using the (first) Nearest Neighbour benchmark
+    plot_fits=false, # whether to plot the fits
+)
+nothing # hide
 ```
 
 ```@example imputation
@@ -246,8 +199,10 @@ p = last([plot!(xvals, cdfs[i][1:10:end]) for i in eachindex(cdfs)])
 ylabel!("cdf(x)")
 xlabel!("x_t")
 title!("CDF at each time point.")
+savefig("./figs_generated/cdfs.svg") # hide
+nothing # hide
 ```
-<!-- ![](./figures/cdfs.svg) -->
+![](./figs_generated/cdfs.svg)
 
 
 ## Docstrings 

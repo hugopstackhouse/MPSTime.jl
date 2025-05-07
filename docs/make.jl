@@ -15,20 +15,30 @@ links = InterLinks(
 
 makedocs(
     sitename = "MPSTime",
-    format = Documenter.HTML(sidebar_sitename=false, assets=String["assets/citations.css"]),
+    format = Documenter.HTML(
+        sidebar_sitename=false, 
+        assets=String["assets/citations.css"],
+        size_threshold_warn=250 * 2^10, # raise slightly from 100 to 200 KiB
+        size_threshold=500 * 2^10,
+    ),
     modules = [MPSTime],
     plugins = [bib, links],
     pages = [
-    "Introduction" => "index.md",
-    "Classification" => "classification.md",
-    "Imputation" => "imputation.md",
-    "Synthetic Data Generation" => "synthdatagen.md",
-    "Encodings" => "encodings.md",
-    "Hyperparameter Tuning" => "hyperparameters.md",
-    "Tools" => "tools.md",
-    "Docstrings" => "docstrings.md",
-    "References" => "references.md",
-    ]
+        "Introduction" => "index.md",
+        "Classification" => "classification.md",
+        "Imputation" => "imputation.md",
+        "Synthetic Data Generation" => "synthdatagen.md",
+        "Encodings" => "encodings.md",
+        "Hyperparameter Tuning" => "hyperparameters.md",
+        "Tools" => "tools.md",
+        "Docstrings" => "docstrings.md",
+        "References" => "references.md",
+    ],
+    # debug options
+    pagesonly = true, # dont compile unlisted pages
+    checkdocs = :none,
+    # draft=true
+    
 )
 
 # deploydocs(

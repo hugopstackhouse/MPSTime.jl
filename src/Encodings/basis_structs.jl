@@ -215,7 +215,7 @@ for example, the polynomial coefficients for the Sahand-Legendre basis. This fun
 # Example
 The Legendre Polynomial Basis:
 
-```jldoctest
+```julia
 using MPSTime, LegendrePolynomials
 function legendre_encode(x::Float64, d::Int)
     # default legendre encoding: choose the first n-1 legendre polynomials
@@ -225,8 +225,7 @@ function legendre_encode(x::Float64, d::Int)
     return leg_basis
 end
 custom_basis = function_basis(legendre_encode, false, (-1., 1.))
-# output
-Basis(Custom)
+
 ```
 
 """

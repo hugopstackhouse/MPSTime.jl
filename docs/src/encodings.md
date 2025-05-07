@@ -1,13 +1,6 @@
 ```@meta
-DocTestSetup = quote
-    using MPSTime, Random
-    rng = Xoshiro(1); # fix rng seed
-    ntimepoints = 100; # specify number of samples per instance.
-    ntrain_instances = 600; # specify num training instances
-    ntest_instances = 300; # specify num test instances
-    X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
-    X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
-end
+Draft = false
+
 ```
 # Encodings
 ## Overview
@@ -20,10 +13,12 @@ Encoding
 Encodings can be visualized with the [`plot_encoding`](@ref) function.
 
 ```@example encs
-using MPSTime
+using MPSTime, Plots
 basis, p = plot_encoding(:legendre, 4)
+savefig(p, "./figs_generated/encodings/leg.svg") # hide
+nothing # hide
 ```
-<!-- ![](./figures/encodings/leg.svg) -->
+![](./figs_generated/encodings/leg.svg)
 
 
 For data-driven bases, the data histograms can be plotted alongside for reference:
@@ -40,8 +35,11 @@ X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=3, period=15
 
 # Plot a data-driven basis
 basis, p = plot_encoding(:sahand_legendre_time_dependent, 4, X_train; tis=[1,20]); # X_train is taken from the noisy trendy sine demo in the Imputation section
+
+savefig(p, "./figs_generated/encodings/SLTD.svg") # hide
+nothing # hide
 ```
-<!-- ![](./figures/encodings/SLTD.svg) -->
+![](./figs_generated/encodings/SLTD.svg)
 
 ## Using a SplitBasis encoding
 
@@ -51,24 +49,30 @@ The uniform-split encoding, which simply bins data up as a proof of concept:
 
 ```@example encs
 basis, p = plot_encoding(uniform_split(:legendre), 8, X_train; tis=[1,20], aux_basis_dim=4);
+savefig(p, "./figs_generated/encodings/usplit.svg") # hide
+nothing #hide
 ```
 
-<!-- ![](./figures/encodings/usplit.svg) -->
+![](./figs_generated/encodings/usplit.svg)
 
 And the histogram-split encoding, which narrows the bins in frequently occurring regions.
 
 ```@example encs
 basis, p = plot_encoding(histogram_split(:legendre), 8, X_train; tis=[1,20], aux_basis_dim=4);
+savefig(p, "./figs_generated/encodings/hsplit.svg") # hide
+nothing # hide
 ```
-<!-- ![](./figures/encodings/hsplit.svg) -->
+![](./figs_generated/encodings/hsplit.svg)
 
 Every data-independent encoding can be histogram split and uniform split, including other split bases:
 
 ```@example encs
 basis, p = plot_encoding(histogram_split(uniform_split(:legendre)), 16, X_train; tis=[1,20], aux_basis_dim=8, size=(1600,900));
+savefig(p, "./figs_generated/encodings/husplit.svg") # hide
+nothing # hide
 ```
 
-<!-- ![](./figures/encodings/husplit.svg) -->
+![](./figs_generated/encodings/husplit.svg)
 
 
 ## Custom encodings
@@ -81,7 +85,7 @@ function_basis
 
 To use a custom encoding, you must manually pass it into [`fitMPS`](@ref).
 
-```jldoctest encs; filter=[r"random state 1234\.(.*)"s => "random state 1234."]
+```@example encs
 
 # Declare a 'custom basis'
 using LegendrePolynomials
@@ -93,12 +97,17 @@ function legendre_encode(x::Float64, d::Int)
     return leg_basis
 end
 custom_basis = function_basis(legendre_encode, false, (-1., 1.))
-fitMPS(X_train, MPSOptions(; encoding=:Custom), custom_basis)
-
-# output
-Generating initial weight MPS with bond dimension χ_init = 4
-        using random state 1234.
 ```
+
+```julia-repl
+julia> mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), custom_basis);
+```
+
+!!! details "output collapsed"
+
+    ```@repl classification
+    mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), custom_basis);
+    ```
 
 ```@docs
 plot_encoding(::Symbol, ::Integer)

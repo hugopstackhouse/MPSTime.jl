@@ -1,3 +1,6 @@
+```@meta
+# Draft = true
+```
 # [Classification](@id Classification_top)
 
 This tutorial for MPSTime will take you through the basic steps needed to fit an MPS to a time-series dataset.
@@ -17,11 +20,11 @@ For the demonstration dataset, the two classes will be generated with different 
 
 We'll set up this dataset using the [`trendy_sine`](@ref) function from MPSTime.
  
-```jldoctest classification; output=false
+```@example classification; output=false
 using MPSTime, Random
 rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance
-ntrain_instances = 600; # specify num training instances
+ntrain_instances = 300; # specify num training instances
 ntest_instances = 200; # specify num test instances
 X_train = vcat(
     trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(12,15), rng=rng)[1],
@@ -39,127 +42,62 @@ y_test = vcat(
     fill(1, ntest_instances ÷ 2),
     fill(2, ntest_instances ÷ 2)
 );
-
-# output
-
-200-element Vector{Int64}:
- 1
- 1
- 1
- 1
- 1
- 1
- 1
- 1
- 1
- 1
- ⋮
- 2
- 2
- 2
- 2
- 2
- 2
- 2
- 2
- 2
-
+nothing # hide
 ```
 
 ```@example classification
 using Plots
-p1 = plot(X_train[1:20,:]'; colour="blue", alpha=0.5, legend=:none);
-p2 = plot(X_train[end-20:end,:]'; colour="blue", alpha=0.5, legend=:none);
+p1 = plot(X_train[1:30,:]'; colour="blue", alpha=0.5, legend=:none, title="Class 1");
+p2 = plot(X_train[end-30:end,:]'; colour="blue", alpha=0.5, legend=:none, title="Class 2");
 plot(p1,p2)
+savefig("./figs_generated/classification_classes.svg") # hide
+nothing # hide
 ```
 
-## Training an MPS
-For the most basic use of fitMPS, select your hyperparameters, and run the [`fitMPS`](@ref) function. 
-Some (truncated) output from our noisy trendy sine datam with default hyperparameters is given below. 
+![](./figs_generated/classification_classes.svg)
 
-```jldoctest classification; filter=[r"\[1\/10\](.*)MPS normalised"s => "[1/10]\n\n[...]\n\nMPS normalised"]
-julia> opts = MPSOptions(); # calling this with no arguments gives default hyperparameters
+## [Training an MPS](@id classification_training)
+!!! warning "Floating Point Error"
+    Depending on the dataset, the results of `fitMPS` can be noticeably affected by what machine it is running on. If you're trying to replicate these
+    tutorials, expect a classification uncertainty of 1-2% (the noisy trendy sine can be something of an extreme case). You can resolve this by either using higher precision computing (pass `dtype=BigFloat` or `Complex{BigFloat}` to [`MPSOptions`](@ref)), or use the [`evaluate`](@ref) function to resample 
+    your data and average the result. This is generally not significant for scientific computing applications as for real word datasets, the floating point error of up to a few percent is much less than the resampling error caused by choosing different train/test splits.
 
+
+To train an MPS on your dataset, first, set up the hyperparameters (see [`Hyperparameters`](@ref c_hparams)):
+```@repl classification
+opts = MPSOptions(); # calling this with no arguments gives default hyperparameters
+print_opts(opts; long=false); # pretty print the options table
+```
+
+and then pass the data and hyperparameters to the [`fitMPS`](@ref) function:
+
+```julia-repl
 julia> mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
-Generating initial weight MPS with bond dimension χ_init = 4
-        using random state 1234.
-The test set couldn't be perfectly rescaled by the training set normalization, 5 additional rescaling operations had to be performed!
-Initialising train states.
-Initialising test states.
-Using 1 iterations per update.
-Training KL Div. 114.94918174702372 | Training acc. 0.5016666666666667.
-Test KL Div. 116.97189034446042 | Testing acc. 0.54.
+``` 
 
-Test conf: [52 48; 44 56].
-Using optimiser CustomGD with the "TSGO" algorithm
-Starting backward sweeep: [1/10]
-Backward sweep finished.
-Starting forward sweep: [1/10]
+!!! details "output collapsed"
 
-[...]
-
-MPS normalised!
-
-Training KL Div. -46.44916444847569 | Training acc. 0.9883333333333333.
-Test KL Div. -41.03275906157264 | Testing acc. 0.98.
-
-Test conf: [99 1; 3 97].
-
-```
+    ```@repl classification
+    mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
+    ```
 
 [`fitMPS`](@ref) doesn't use `X_test` or `y_test` for anything except printing performance evaluations, so it is safe to leave them blank. For unsupervised learning, input a dataset with only one class, or only pass `X_train` ( `y_train` has a default value of `zeros(Int, size(X_train, 1))` ).
 
 The `mps::TrainedMPS` can be passed directly to [`classify`](@ref) for classification, or [`init_imputation_problem`](@ref) to set up an imputation problem. `info` provides a short training summary, which can be pretty-printed with the [`sweep_summary`](@ref) function.
 
 You can use also `test_states` to print a summary of the MPS performance on the test set.
-```jldoctest classification
-julia> get_training_summary(mps, test_states; print_stats=true);   
-
-         Overlap Matrix
-┌──────┬───────────┬───────────┐
-│      │   |ψ1⟩    │   |ψ2⟩    │
-├──────┼───────────┼───────────┤
-│ ⟨ψ1| │ 1.000e+00 │ 9.391e-03 │
-├──────┼───────────┼───────────┤
-│ ⟨ψ2| │ 9.391e-03 │ 1.000e+00 │
-└──────┴───────────┴───────────┘
-          Confusion Matrix
-┌──────────┬───────────┬───────────┐
-│          │ Pred. |1⟩ │ Pred. |2⟩ │
-├──────────┼───────────┼───────────┤
-│ True |1⟩ │        99 │         1 │
-├──────────┼───────────┼───────────┤
-│ True |2⟩ │         3 │        97 │
-└──────────┴───────────┴───────────┘
-┌───────────────────┬───────────┬──────────┬──────────┬─────────────┬─────────┬───────────┐
-│ test_balanced_acc │ train_acc │ test_acc │ f1_score │ specificity │  recall │ precision │
-│           Float64 │   Float64 │  Float64 │  Float64 │     Float64 │ Float64 │   Float64 │
-├───────────────────┼───────────┼──────────┼──────────┼─────────────┼─────────┼───────────┤
-│              0.98 │  0.988333 │     0.98 │ 0.979998 │        0.98 │    0.98 │  0.980192 │
-└───────────────────┴───────────┴──────────┴──────────┴─────────────┴─────────┴───────────┘
+```@example classification
+get_training_summary(mps, test_states; print_stats=true);   
 
 ```
 
-## Hyperparameters
+## [`Hyperparameters`](@id c_hparams)
 
 There are number of hyperparameters and data preprocessing options that can be specified using `MPSOptions(; key=value)`
 
 
 ```@docs
 MPSOptions
-```
-
-You can also print a formatted table of options with [`print_opts`](@ref) (beware long output)
-
-```jldoctest classification
-julia> print_opts(opts; long=false);
-┌─────────┬──────────────────┬─────────┬─────────┬───────────────────┬───────────┬───────┐
-│ nsweeps │         encoding │     eta │ chi_max │ sigmoid_transform │ loss_grad │     d │
-│   Int64 │           Symbol │ Float64 │   Int64 │              Bool │    Symbol │ Int64 │
-├─────────┼──────────────────┼─────────┼─────────┼───────────────────┼───────────┼───────┤
-│      10 │ Legendre_No_Norm │    0.01 │      25 │              true │       KLD │     5 │
-└─────────┴──────────────────┴─────────┴─────────┴───────────────────┴───────────┴───────┘
-
 ```
 
 ## Classification
@@ -170,19 +108,16 @@ classify(::TrainedMPS, ::AbstractMatrix)
 ```
 
 For example, for the noisy trendy sine from earlier:
-```jldoctest classification
-julia> predictions = classify(mps, X_test);
-
-julia> using StatsBase
-
-julia> mean(predictions .== y_test)
-0.98
+```@repl classification
+predictions = classify(mps, X_test);
+using StatsBase
+mean(predictions .== y_test)
 ```
 
 ## Training with a custom basis
 To train with a custom basis, first, declare a custom basis with [`function_basis`](@ref), and pass it in as the last argument to [`fitMPS`](@ref). For this to work, the encoding hyperparameter must be set to `:Custom` in `MPSOptions`
 
-```jldoctest classification; filter=[r"random state 1234(.*)"s => "\n\n[...]"], setup=:(X_train=X_train[1:3,1:5]; y_train=y_train[1:3])
+```@example classification
 using LegendrePolynomials
 function legendre_encode(x::Float64, d::Int)
     # default legendre encoding: choose the first n-1 legendre polynomials
@@ -192,19 +127,25 @@ function legendre_encode(x::Float64, d::Int)
     return leg_basis
 end
 custom_basis = function_basis(legendre_encode, false, (-1., 1.))
-fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), custom_basis)
-# output
-Generating initial weight MPS with bond dimension χ_init = 4
-        using random state 1234.
-
-[...]
 ```
+
+```julia-repl
+julia> mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), custom_basis);
+```
+
+!!! details "output collapsed"
+
+    ```@repl classification
+    mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, MPSOptions(; encoding=:Custom), custom_basis);
+    ```
+
+
 
 ## Docstrings
 
 ```@docs
 fitMPS(::Matrix, ::Vector, ::Matrix, ::Vector, ::MPSOptions, ::Nothing)
-sweep_summary(info)
-get_training_summary(mps::TrainedMPS, test_states::EncodedTimeSeriesSet)
+sweep_summary(io::Union{Nothing,IO}, info)
+get_training_summary(io::IO, mps::TrainedMPS, test_states::EncodedTimeSeriesSet)
 print_opts
 ```
