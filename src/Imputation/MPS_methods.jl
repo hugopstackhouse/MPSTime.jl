@@ -278,7 +278,7 @@ function impute_mode(
         max_jump::Union{Number,Nothing}=nothing
     )
 
-    """impute mps sites without respecting time ordering, i.e., 
+    """Impute mps sites without respecting time ordering, i.e., 
     condition on all known values first, then impute remaining sites one-by-one.
     Use direct mode."""
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )

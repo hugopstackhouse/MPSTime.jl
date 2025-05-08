@@ -13,8 +13,8 @@ For this tutorial, we'll be solving a classification hyperoptimisation problem a
 using MPSTime, Random
 rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance
-ntrain_instances = 600; # specify num training instances
-ntest_instances = 300; # specify num test instances
+ntrain_instances = 300; # specify num training instances
+ntest_instances = 200; # specify num test instances
 X_train = vcat(
     trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(12,15), rng=rng)[1],
     trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(16,19), rng=rng)[1]
@@ -37,25 +37,23 @@ y_test = vcat(
 
 
 ## Hyperoptimising classification 
-The hyperparameter tuning algorithms supported by MPSTime support every numerical hyperparameter that may be specified by [`MPSOptions`](@ref). For this problem, we'll generate a small search space over the three most important hyperparameters: the maximum MPS bond dimension `chi_max`, the physical dimension `d`, and the learning rate `eta`. Every other hyperparamter will be left at its default value.
+The hyperparameter tuning algorithms supported by MPSTime supports every numerical hyperparameter that may be specified by [`MPSOptions`](@ref). For this problem, we'll generate a small search space over the three most important hyperparameters: the maximum MPS bond dimension `chi_max`, the physical dimension `d`, and the learning rate `eta`. Every other hyperparamter will be left at its default value.
 
-The variables to optimise, along with their upper and lower bounds are specified with the syntax `params = (<variable_name_1>=(<lower bound>, <upper bound>))`, e.g.
+The variables to optimise, along with their upper and lower bounds are specified with the syntax `params = (<variable_name_1>=(<lower_bound_1>, <upper_bound_1>), ...)`, e.g.
 
 ```julia
 params = (
     eta=(1e-3, 1e-1), 
-    d=(5,7), 
-    chi_max=(20,25)
+    d=(2,8), 
+    chi_max=(20,40)
 ) 
 ```
-To solve real-world problems, the upper bounds on `d` and `chi_max` should be set much higher (e.g. 10 and 40), however the small search space will serve well enough for this example.
+When solving real-world problems, it's a good idea to explore a larger `d` and `chi_max` search space, but for this example it will serve well enough.
 
 ### K-fold cross validation with tune()
-To optimise the hyperparameters on your dataset, simply call tune():
+To optimise the hyperparameters on your dataset, simply call [`tune`](@ref):
 
 ```julia-repl
-julia> using Distributed
-julia> addprocs(5); @everywhere using MPSTime # Setup a small amount of parallisation
 julia> nfolds = 5;
 julia> best_params, cache = tune(
     X_train, 
@@ -65,25 +63,8 @@ julia> best_params, cache = tune(
     MPSRandomSearch(); 
     objective=MisclassificationRate(), 
     maxiters=20, # for demonstration purposes only, typically this should be much larger
-    distribute_folds=true, # enable distributed computing
     logspace_eta=true
 );
-iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-iter 1, cvfold 1: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-iter 1, cvfold 1: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 68.38s (train=66.85s, loss=1.53s)
-iter 1, cvfold 2: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-iter 1, cvfold 2: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.89s (train=39.81s, loss=0.08s)
-iter 1, cvfold 3: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-iter 1, cvfold 3: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 38.94s (train=38.86s, loss=0.08s)
-iter 1, cvfold 4: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-iter 1, cvfold 4: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.12s (train=39.04s, loss=0.08s)
-iter 1, cvfold 5: training MPS with (chi_max = 25, d = 7, eta = 0.0379269019073225)...
-iter 1, cvfold 5: finished. MPS (chi_max = 25, d = 7, eta = 0.0379269019073225) finished in 39.07s (train=38.99s, loss=0.08s)
-iter 1, t=232.71: Mean CV Loss: 0.19666666666666666
-iter 2, cvfold 1: training MPS with (chi_max = 24, d = 7, eta = 0.023357214690901226)...
-[...]
-iter 20, cvfold 5: finished. MPS (chi_max = 20, d = 5, eta = 0.018329807108324356) finished in 23.75s (train=23.68s, loss=0.07s)
-iter 20, t=2797.13: Mean CV Loss: 0.32666666666666666
 
 julia> best_params
 (chi_max = 23,
@@ -108,7 +89,7 @@ There are many more customisation options for [`tune`](@ref), see the docstring 
 If you want to estimate the performance of MPSTime on a dataset, you can call the [`evaluate`](@ref) function, which resamples your data into train/test splits using a provided resampling strategy (default is k-fold cross validation), tunes each split on the "training" set, and evaluates the test set. It can be called with the following syntax:
 
 ```julia-repl
-julia> nfolds = 30;
+julia> nresamples = 3; # number of outer "resampling" folds - usually 30
 
 julia> Xs = vcat(X_train, X_test);
 
@@ -117,9 +98,10 @@ julia> ys = vcat(y_train, y_test);
 julia> results = evaluate(
     Xs,
     ys,
-    nfolds,
+    nresamples,
     params,
     MPSRandomSearch(); 
+    n_cvfolds=nfolds, # the number of folds used by tune()
     objective=MisclassificationRate(),
     tuning_maxiters=20
 );
@@ -142,23 +124,23 @@ A very common extension of `evaluate` is to customise the resampling strategy. T
 ```julia-repl
 julia> using PyCall
 
-julia> nfolds = 30
+julia> nresamples = 3;
 
 julia> py"""
 from sklearn.model_selection import StratifiedShuffleSplit # requires a python environment with sklearn installed
-sp = StratifiedShuffleSplit(n_splits=$nfolds, test_size=$(length(y_test)), random_state=1)
+sp = StratifiedShuffleSplit(n_splits=$nresamples, test_size=$(length(y_test)), random_state=1)
 folds_py = sp.split($Xs, $ys)
 """
-julia> folds = collect(py"folds_py")
-30-element Vector{Any}:
- ([29, 85, 93, 56, 41, 59, 98, 24, 78, 96  …  35, 32, 77, 65, 23, 30, 91, 10, 19, 17], [9, 94, 5, 1, 67, 69, 95, 48, 63, 38  …  52, 60, 16, 57, 37, 12, 66, 11, 18, 15])
- ([26, 74, 86, 43, 78, 14, 76, 3, 22, 7  …  5, 71, 91, 66, 63, 64, 61, 34, 35, 89], [55, 40, 68, 73, 84, 59, 79, 58, 54, 15  …  75, 8, 32, 10, 81, 60, 90, 87, 44, 85])
+julia> folds = [(tr_inds .+ 1, te_inds .+ 1) for (tr_inds, te_inds) in py"folds_py"]
+3-element Vector{Tuple{Vector{Int64}, Vector{Int64}}}:
+ ([197, 472, 462, 108, 133, 258, 179, 57, 149, 373  …  279, 94, 234, 473, 319, 378, 387, 92, 359, 35], [354, 313, 137, 239, 316, 479, 274, 145, 134, 485  …  110, 417, 346, 141, 165, 50, 77, 23, 347, 130])
+ ([399, 105, 322, 289, 281, 187, 131, 18, 56, 231  …  463, 38, 491, 288, 408, 430, 330, 185, 481, 353], [345, 469, 396, 10, 96, 452, 245, 76, 367, 84  …  202, 153, 94, 446, 372, 152, 79, 387, 51, 301])
 [...]
 
 julia> results = evaluate(
     Xs,
     ys,
-    nfolds,
+    nresamples,
     params,
     MPSRandomSearch(); 
     objective=MisclassificationRate(),
@@ -177,7 +159,7 @@ windows = [[1,3,7],[4,5,6]]
 ```
 will take each timeseries in the test set, and create two 'corrupted' test series, missing the 1st, 3rd, and 7th; and the 4th, 5th, and 6th values respectively.
 2) Setting the `pms` (or `eval_pms`) keyword in [`tune`](@ref) (or [`evaluate`](@ref), respectively) to a vector of 'percentage missings'. This generates corrupted time series by removing randomly selected contiguous blocks that make up a specified percentage of the data. For example, 
-```Julia
+```iulia
 pms=[0.05, 0.05, 0.6, 0.95]
 ```
 will generate four corrupted time series from each element of the test (or validation) set. Two will have missing blocks that make up 5% of their length, and one each will have blocks with 60% and 95% missing.
@@ -187,16 +169,16 @@ The imputation tuning loss is the average of computing the mean absolute error o
 **Example: Calling tune with percentages missing**
 Tune the MPS on an imputation problem with randomly selected 5%, 15%, 25%, ... , 95% long missing blocks.
 ```julia
-nfolds = 5
+nresamples = 3
 params = (d=(8,12), chi_max=(30,50))
 best_params, cache = tune(
     X_train, 
     y_train, 
-    nfolds,
+    nresamples,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
-    pms=collect(0.05:0.1:0.95)
+    pms=collect(0.05:0.1:0.95),
     maxiters=20,
     logspace_eta=true
 )
@@ -205,15 +187,15 @@ best_params, cache = tune(
 **Example: Using evaluate with the Missing Completely At Random tool**
 Tune the MPS on an imputation problem by completely randomly corrupting 5%, 15%, 25%, ... , or 95% of each test (or validation) time series. See the [`Missing Completely at Random`](@ref mcar) tool.
 
-```julia-repl
-julia> inds = collect(1:size(Xs,2));
-julia> rng = Xoshiro(42);
-julia> pms=0.05:0.1:0.95;
-julia> mcar_windows = [mcar(inds, pm; rng=rng)[2] for pm in pms]
-julia> results = evaluate(
+```julia
+inds = collect(1:size(Xs,2))
+rng = Xoshiro(42)
+pms = 0.05:0.1:0.95
+mcar_windows = [mcar(inds, pm; rng=rng)[2] for pm in pms]
+results = evaluate(
     Xs,
     ys,
-    nfolds,
+    nresamples,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(),

@@ -16,10 +16,9 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 
 ## Setup
 
-The first step is to train an MPS. 
-Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid (we discuss the demonstration dataset more in [`Classification`](@ref nts_demo)).
+The first step is to train an MPS. Here, we'll train an MPS in an unsupervised manner (no class labels) using an adapted version of the noisy trendy sinusoid dataset from the [`Classification`](@ref nts_demo) tutorial.
 
-```@example imputation
+```@example imputation; continued=true
 using MPSTime, Random 
 rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance.
@@ -28,7 +27,11 @@ ntest_instances = 200; # specify num test instances
 X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
 X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
 # hyper parameters and training
-opts = MPSOptions(d=12, chi_max=40, sigmoid_transform=false); # disable sigmoid transform data preprocessing
+opts = MPSOptions(
+    d=12, 
+    chi_max=40, 
+    sigmoid_transform=false # disabling preprocessing generally improves imputation performance.
+) 
 mps, info, test_states = fitMPS(X_train, opts);
 
 nothing # hide
@@ -92,11 +95,11 @@ To plot the imputed time series, we can call the plot function as follows:
 ```@example imputation
 using Plots
 plots[1]
-savefig("figs_generated/median_impute_1.svg") # hide
+savefig("figs_generated/imputation/median_impute_1.svg") # hide
 nothing # hide
 ```
 
-![](./figs_generated/median_impute_1.svg)
+![](./figs_generated/imputation/median_impute_1.svg)
 
 The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NN benchmark.
 The blue shading indicates the uncertainty due to encoding error.
@@ -126,16 +129,17 @@ pretty_table(stats[1]; header=["Metric", "Value"], header_crayon=crayon"yellow b
 ```
 ```@example imputation
 plots[1]
-savefig("figs_generated/median_impute_nblocks.svg") # hide
+savefig("figs_generated/imputation/median_impute_nblocks.svg") # hide
 nothing # hide
 ```
-![](./figs_generated/median_impute_nblocks.svg)
+![](./figs_generated/imputation/median_impute_nblocks.svg)
+
 
 ### Individual Point Imputation
 To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
 ```@repl imputation
-impute_sites = [10] # only impute t = 10
-impute_sites = [10, 25, 50] # impute multiple individual points
+impute_sites = [10]; # only impute t = 10
+impute_sites = [10, 25, 50]; # impute multiple individual points
 ```
 
 
@@ -166,17 +170,17 @@ stats
 
 ```@example imputation
 plots[1]
-savefig("./figs_generated/ITS_impute.svg") # hide
+savefig("./figs_generated/imputation/ITS_impute.svg") # hide
 nothing #hide
 ```
-![](./figs_generated/ITS_impute.svg)
+![](./figs_generated/imputation/ITS_impute.svg)
 
 
 
 ## Plotting cumulative distribution functions
 
 It can be interesting to inspect the probability distribution being sampled from at each missing time point. 
-To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain.
+To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain. Currently only supports `method=:median`.
 
 ```@example imputation
 using Plots
@@ -185,9 +189,7 @@ cdfs, ts, pred_err, target = get_cdfs(
     class, 
     instance_idx, 
     impute_sites, 
-    method; 
-    NN_baseline=false, # whether to also do a baseline imputation using the (first) Nearest Neighbour benchmark
-    plot_fits=false, # whether to plot the fits
+    # method; # Only supports method=:median
 )
 nothing # hide
 ```
@@ -199,10 +201,10 @@ p = last([plot!(xvals, cdfs[i][1:10:end]) for i in eachindex(cdfs)])
 ylabel!("cdf(x)")
 xlabel!("x_t")
 title!("CDF at each time point.")
-savefig("./figs_generated/cdfs.svg") # hide
+savefig("./figs_generated/imputation/cdfs.svg") # hide
 nothing # hide
 ```
-![](./figs_generated/cdfs.svg)
+![](./figs_generated/imputation/cdfs.svg)
 
 
 ## Docstrings 
