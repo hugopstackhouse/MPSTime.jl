@@ -1,5 +1,5 @@
 ```@meta
-Draft = false
+Draft = true
 ```
 # [Imputation](@id Imputation_top)
 ## Overview 
@@ -38,8 +38,9 @@ nothing # hide
 ```
 
 Next, we initialize an imputation problem. This does a lot of necessary pre-computation:
-```@repl imputation
-imp = init_imputation_problem(mps, X_test);
+```@example imputation
+imp = init_imputation_problem(mps, X_test)
+nothing # hide
 
 ```
 A summary of the imputation problem setup is printed to verify the model parameters and dataset information.

@@ -1,5 +1,5 @@
 ```@meta
-# Draft = false
+# Draft = true
 ```
 # [Classification](@id Classification_top)
 
@@ -91,7 +91,7 @@ get_training_summary(mps, test_states; print_stats=true);
 
 ```
 
-## [`Hyperparameters`](@id c_hparams)
+## [Hyperparameters](@id c_hparams)
 
 There are number of hyperparameters and data preprocessing options that can be specified using `MPSOptions(; key=value)`
 

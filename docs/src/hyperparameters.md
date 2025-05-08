@@ -1,5 +1,5 @@
 ```@meta
-Draft = true
+Draft = false
 ```
 # [Hyperparameter Tuning](@id hyperparameters_top)
 
@@ -65,11 +65,32 @@ julia> best_params, cache = tune(
     maxiters=20, # for demonstration purposes only, typically this should be much larger
     logspace_eta=true
 );
+iter 1, cvfold 1: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 2: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 3: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 4: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 5: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 1: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 128.25s (train=126.38s, loss=1.87s)
+iter 1, cvfold 2: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 129.0s (train=127.11s, loss=1.89s)
+iter 1, cvfold 3: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 128.57s (train=126.74s, loss=1.84s)
+iter 1, cvfold 4: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 128.78s (train=126.96s, loss=1.82s)
+iter 1, cvfold 5: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 127.77s (train=125.94s, loss=1.83s)
+iter 1, t=139.39: Mean CV Loss: 0.040000000000000015
+iter 2, cvfold 1: training MPS with (chi_max = 39, d = 6, eta = 0.0379269019073225)...
+  
+[...]
+
+iter 20, cvfold 4: finished. MPS (chi_max = 21, d = 2, eta = 0.018329807108324356) finished in 13.52s (train=13.45s, loss=0.08s)
+iter 20, cvfold 5: finished. MPS (chi_max = 21, d = 2, eta = 0.018329807108324356) finished in 14.98s (train=14.47s, loss=0.5s)
+iter 20, t=843.55: Mean CV Loss: 0.08
 
 julia> best_params
-(chi_max = 23,
- d = 7,
- eta = 0.008858667904100823,)
+(chi_max = 31,
+ d = 4,
+ eta = 0.07847599703514611,)
+
+julia> cache[values(best_params)] # retrieve loss from the cache
+0.0033333333333333435 # equivalent to 99.67% accuracy
 ```
 which returns `best params`: a named tuple containing the optimised hyperparameters, and `cache`: a dictionary that saves the mean loss of every tested hyperparameter combination.
 
@@ -78,8 +99,8 @@ The arguments used here are:
 - `y_train`: Vector of time series class labels.
 - `nfolds`: Number of cross validiation folds to use. Folding type can be specified with the `foldmethod` keyword.
 - `params`: Hyperparameters to tune and their upper and lower bounds, see previous section.
-- `MPSRandomSearch()`: The tuning algorithm to use, see [`the tuning algorithm`](@ref hyper_algs) section.
-- `objective=MisclassificationRate()`: Optimise the raw classification accuracy. Other options are balanced classification accuracy `BalancedMisclassificationRate`, or `ImputationLoss()` (see [imputation hyperoptimisation](@ref imputation_hyper)).
+- `MPSRandomSearch()`: The tuning algorithm to use, see the [`tuning algorithm`](@ref hyper_algs) section.
+- `objective=MisclassificationRate()`: Optimise the raw misclassification rate (1 - accuracy). The other options are `BalancedMisclassificationRate` (optimises balanced accuracy), or `ImputationLoss()` (see [imputation hyperoptimisation](@ref imputation_hyper)).
 - `maxiters=20`: The maximum number of solver iterations. Here we use a very small number for demonstration reasons.
 - `logspace_eta=true`: A useful option that tells the tuning algorithm to sample the eta search space logarithmically.
 
@@ -105,14 +126,41 @@ julia> results = evaluate(
     objective=MisclassificationRate(),
     tuning_maxiters=20
 );
+Beginning fold 1:
+Fold 1: iter 1, cvfold 1: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 2: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 3: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 4: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 5: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
 
-julia> results[1] # displays results for fold 1.
+[...]
 
-julia> losses = getindex.(res, "loss");
+Fold 3: iter 20, cvfold 4: finished. MPS (chi_max = 28, d = 2, eta = 0.06873684210526317) finished in 19.26s (train=19.14s, loss=0.12s)
+Fold 3: iter 20, cvfold 5: finished. MPS (chi_max = 28, d = 2, eta = 0.06873684210526317) finished in 19.86s (train=19.78s, loss=0.08s)
+Fold 3: iter 20, t=875.4: Mean CV Loss: 0.011985526910900046
+fold 3: t=2899.6: training MPS with (chi_max = 39, d = 3, eta = 0.016631578947368424)...  done
 
-julia> using StatsBase # for the mean function
+julia> results[1]
+Dict{String, Any} with 13 entries:
+  "time"           => 1055.61
+  "objective"      => "MisclassificationRate()"
+  "train_inds"     => [340, 445, 262, 132, 89, 379, 225, 59, 224, 57  …  495, 484, 355, 322, 284, 363, …
+  "optimiser"      => "MPSRandomSearch(:LatinHypercube)"
+  "fold"           => 1
+  "test_inds"      => [133, 477, 112, 148, 13, 453, 342, 83, 252, 455  …  151, 483, 74, 380, 61, 297, 1…
+  "tuning_windows" => nothing
+  "eval_windows"   => nothing
+  "cache"          => Dict((39, 6, 0.0166316)=>0.0149706, (33, 7, 0.0426842)=>0.0300769, (36, 7, 0.0635…
+  "tuning_pms"     => nothing
+  "loss"           => [0.00598802]
+  "eval_pms"       => nothing
+  "opts"           => MPSOptions(-5, 10, 32, 0.0531053, 4, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Flo…
 
-julia> println("The mean classification loss on the resampled noisy trendy sine data is: $(mean(losses))")
+julia> losses = getindex.(results, "loss")
+3-element Vector{Vector{Float64}}:
+ [0.005988023952095856]
+ [0.005988023952095856]
+ [0.0060240963855421326]
 
 ```
 
@@ -127,14 +175,15 @@ julia> using PyCall
 julia> nresamples = 3;
 
 julia> py"""
-from sklearn.model_selection import StratifiedShuffleSplit # requires a python environment with sklearn installed
-sp = StratifiedShuffleSplit(n_splits=$nresamples, test_size=$(length(y_test)), random_state=1)
-folds_py = sp.split($Xs, $ys)
-"""
-julia> folds = [(tr_inds .+ 1, te_inds .+ 1) for (tr_inds, te_inds) in py"folds_py"]
+    from sklearn.model_selection import StratifiedShuffleSplit # requires a python environment with sklearn installed
+    sp = StratifiedShuffleSplit(n_splits=$nresamples, test_size=$(length(y_test)), random_state=1)
+    folds_py = sp.split($Xs, $ys)
+    """
+julia> folds = [(tr_inds .+ 1, te_inds .+ 1) for (tr_inds, te_inds) in py"folds_py"] # shift indices up by 1
 3-element Vector{Tuple{Vector{Int64}, Vector{Int64}}}:
  ([197, 472, 462, 108, 133, 258, 179, 57, 149, 373  …  279, 94, 234, 473, 319, 378, 387, 92, 359, 35], [354, 313, 137, 239, 316, 479, 274, 145, 134, 485  …  110, 417, 346, 141, 165, 50, 77, 23, 347, 130])
  ([399, 105, 322, 289, 281, 187, 131, 18, 56, 231  …  463, 38, 491, 288, 408, 430, 330, 185, 481, 353], [345, 469, 396, 10, 96, 452, 245, 76, 367, 84  …  202, 153, 94, 446, 372, 152, 79, 387, 51, 301])
+
 [...]
 
 julia> results = evaluate(
@@ -146,13 +195,13 @@ julia> results = evaluate(
     objective=MisclassificationRate(),
     tuning_maxiters=20,
     foldmethod=folds
-)
+);
 [...]
 ```
 
 
 ## [Hyperoptimising imputation](@id imputation_hyper)
-The [`tune`](@ref) and [`evaluate`](@ref) methods may both be used to minimise imputation loss, with a small amount of extra setup. Setting `objective=ImputationLoss()` will optimise an MPS for imputation performance by minimising the mean absolute error between predicted and unseen data. To accomplish this, MPSTime takes data from the test (or validation) set, corrupts a portion of it, and then predicts what the corrupted data should be based on the uncorrupted values. There are two methods for how the test (or validation) data can be corrupted.
+The [`tune`](@ref) and [`evaluate`](@ref) methods may both be used to minimise imputation loss, with a small amount of extra setup. Setting `objective=ImputationLoss()` will optimise an MPS for imputation performance by minimising the mean absolute error (MAE) between predicted and unseen data. To accomplish this, MPSTime takes data from the test (or validation) set, corrupts a portion of it, and then predicts what the corrupted data should be based on the uncorrupted values. There are two methods for how the test (or validation) data can be corrupted.
 1) Setting the `windows` (or `eval_windows`) keyword in [`tune`](@ref) (or [`evaluate`](@ref), respectively) to a vector of 'windows'. Each window is a vector of missing/corrupted data indices, for example
 ```julia
 windows = [[1,3,7],[4,5,6]]
@@ -160,21 +209,22 @@ windows = [[1,3,7],[4,5,6]]
 will take each timeseries in the test set, and create two 'corrupted' test series, missing the 1st, 3rd, and 7th; and the 4th, 5th, and 6th values respectively.
 2) Setting the `pms` (or `eval_pms`) keyword in [`tune`](@ref) (or [`evaluate`](@ref), respectively) to a vector of 'percentage missings'. This generates corrupted time series by removing randomly selected contiguous blocks that make up a specified percentage of the data. For example, 
 ```iulia
-pms=[0.05, 0.05, 0.6, 0.95]
+pms = [0.05, 0.05, 0.6, 0.95]
 ```
-will generate four corrupted time series from each element of the test (or validation) set. Two will have missing blocks that make up 5% of their length, and one each will have blocks with 60% and 95% missing.
-        
-The imputation tuning loss is the average of computing the mean absolute error of imputing every window on every element of the test (or validation) set.
+will generate four corrupted time series from each element of the test (or validation) set. Two will have missing blocks that make up 5% of their length, and one each will have blocks with 60% and 95% missing. The imputation tuning loss is the average MAE of imputing every window on every element of the test (or validation) set.
 
 **Example: Calling tune with percentages missing**
 Tune the MPS on an imputation problem with randomly selected 5%, 15%, 25%, ... , 95% long missing blocks.
 ```julia
-nresamples = 3
-params = (d=(8,12), chi_max=(30,50))
+params = (
+    d=(8,12), 
+    chi_max=(30,50)
+)
+
 best_params, cache = tune(
     X_train, 
     y_train, 
-    nresamples,
+    nfolds,
     params,
     MPSRandomSearch(); 
     objective=ImputationLoss(), 
@@ -182,6 +232,37 @@ best_params, cache = tune(
     maxiters=20,
     logspace_eta=true
 )
+```
+
+```
+iter 1, cvfold 1: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 2: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 3: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 4: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 5: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 1: finished. MPS (chi_max = 47, d = 12) finished in 515.58s (train=402.83s, loss=112.75s)
+iter 1, cvfold 2: finished. MPS (chi_max = 47, d = 12) finished in 511.0s (train=399.52s, loss=111.48s)
+iter 1, cvfold 3: finished. MPS (chi_max = 47, d = 12) finished in 516.33s (train=406.92s, loss=109.41s)
+iter 1, cvfold 4: finished. MPS (chi_max = 47, d = 12) finished in 519.06s (train=405.13s, loss=113.93s)
+iter 1, cvfold 5: finished. MPS (chi_max = 47, d = 12) finished in 522.12s (train=406.87s, loss=115.25s)
+iter 1, t=534.28: Mean CV Loss: 0.44716868140737487
+iter 2, cvfold 1: training MPS with (chi_max = 50, d = 11)...
+
+[...]
+
+iter 20, cvfold 4: finished. MPS (chi_max = 31, d = 8) finished in 112.81s (train=66.33s, loss=46.48s)
+iter 20, cvfold 5: finished. MPS (chi_max = 31, d = 8) finished in 113.9s (train=66.32s, loss=47.58s)
+iter 20, t=5223.05: Mean CV Loss: 0.4755302875557089
+```
+
+
+```julia-repl
+julia> best_params
+(chi_max = 48,
+ d = 9,)
+
+julia> cache[values(best_params)]
+0.39402101779354365
 ```
 
 **Example: Using evaluate with the Missing Completely At Random tool**
@@ -200,7 +281,7 @@ results = evaluate(
     MPSRandomSearch(); 
     objective=ImputationLoss(),
     eval_windows=mcar_windows,
-    tuning_maxiters=20
+    tuning_maxiters=20,
 )
 
 ```
@@ -262,7 +343,7 @@ The `p_fold` variable is a tuple containing information used for logging. The `d
         p_fold::Union{Nothing, Tuple}=nothing,
         distribute::Bool=false,
         method::Symbol=:median
-        )
+    )
         
         if ~isnothing(p_fold)
             verbosity, pre_string, tstart, fold, nfolds = p_fold
@@ -314,7 +395,7 @@ The `p_fold` variable is a tuple containing information used for logging. The `d
 
 
 ## [Choice of tuning algorithm](@id hyper_algs)
-The hyperparameter tuning algorithm used by [`tune`](@ref) (or [`evaluate`](@ref)) can be specified with the `optimiser` argument. This supports the default builtin [`MPSRandomSearch`](@ref) methods, as well as (in theory) any solver that is supported by the [`Optimization.jl interface`](https://docs.sciml.ai/Optimization/stable). Note that many of these solvers struggle with discrete search spaces, such as tuning the integer valued `chi_max` and `d`. Some of them require initial conditions (set `provide_x0=true`), and some require no initial conditions (set `provide_x0=false`), so your mileage may vary. By default, `tune()` handles optimisers attempting to evaluate discrete hyperparameters at a non-integer value by rounding,  and using its own cache to avoid rounding based cache misses. This is effective, but has the downside of causing `maxiters` to be inaccurate (as repeated hyperparameter evaluations caused by rounding result in a 'skipped' iteration).
+The hyperparameter tuning algorithm used by [`tune`](@ref) (or [`evaluate`](@ref)) can be specified with the `optimiser` argument. This supports the default builtin [`MPSRandomSearch`](@ref) methods, as well as (in theory) any solver that is supported by the [`Optimization.jl interface`](https://docs.sciml.ai/Optimization/stable). Note that many of these solvers struggle with discrete search spaces, such as tuning the integer valued `chi_max` and `d`. Some of them require initial conditions (set `provide_x0=true`), and some require no initial conditions (set `provide_x0=false`), so your mileage may vary. By default, `tune()` handles optimisers attempting to evaluate discrete hyperparameters at a non-integer value by rounding and using its own cache to avoid rounding based cache misses. This is effective, but has the downside of causing `maxiters` to be inaccurate (as repeated hyperparameter evaluations caused by rounding result in a 'skipped' iteration).
 
 ```@docs
 MPSRandomSearch
@@ -323,27 +404,23 @@ MPSRandomSearch
 
 ## [Distributed computing](@id distributed_computing)
 Both tune [`tune`](@ref) and [`evaluate`](@ref) support several different parallel processing paradigms for different use cases, compatible with processors added via Distributed.jl's [`addprocs`](@extref Distributed.addprocs) function. 
-For example, to distribute each fold of the classification style evalutation above, run:
+For example, to distribute each fold of the classification style evaluation above, run:
+
 ```julia-repl
-julia> using Distributed
+using Distributed
+nfolds = 30;
 
-julia> nfolds = 30;
+e = copy(ENV);
+e["OMP_NUM_THREADS"] = "1"; # attempt to prevent threading
+e["JULIA_NUM_THREADS"] = "1"; # attempt to prevent threading
 
-julia> e = copy(ENV);
+addprocs(nfolds; env=e);
+@everywhere using MPSTime
 
-julia> e["OMP_NUM_THREADS"] = "1"; # attempt to prevent threading
+Xs = vcat(X_train, X_test);
+ys = vcat(y_train, y_test);
 
-julia> e["JULIA_NUM_THREADS"] = "1"; # attempt to prevent threading
-
-julia> addprocs(nfolds; env=e);
-
-julia> @everywhere using MPSTime
-
-julia> Xs = vcat(X_train, X_test);
-
-julia> ys = vcat(y_train, y_test);
-
-julia> results = evaluate(
+results = evaluate(
     Xs,
     ys,
     nfolds,
@@ -353,7 +430,9 @@ julia> results = evaluate(
     tuning_maxiters=20,
     distribute_folds=true
 )
+
 [...]
+
 ```
 
 See the respective docstrings for more information.
