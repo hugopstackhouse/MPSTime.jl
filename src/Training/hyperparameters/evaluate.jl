@@ -80,10 +80,13 @@ Should generally always be the same as `opts0`, but can be specified separately 
 ## Resampling and Cross Validation
 - `foldmethod::Union{Function, Vector}=make_stratified_cvfolds`: Can either be an `nfolds`-long Vector of `[train_indices::Vector, test_indices::Vector]` pairs, or a function that produces them, with the signature `foldmethod(Xs,ys, nfolds; rng::AbstractRNG)` \
 To clarify, the `tune` function determines the train/test splits for the ith fold in the following way:
-```
+```julia-repl
 julia> folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
+
 julia> train_inds, test_inds = folds[i];
+
 julia> X_train, y_train = Xs[train_inds, :], ys[train_inds];
+
 julia> X_test, y_test = Xs[test_inds, :], ys[test_inds];
 ```
 `foldmethod` defaults to `nfold`-fold cross validation.

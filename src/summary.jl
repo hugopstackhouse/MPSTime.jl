@@ -142,9 +142,11 @@ classify(mps::TrainedMPS, X_test::AbstractMatrix)) -> (predictions::Vector)
 Use the `mps` to predict the class of the rows of `X_test` by computing the maximum overlap.
 
 # Example
-```
+```julia-repl
 julia> W, info, test_states = fitMPS( X_train, y_train);
+
 julia> preds  = classify(W, X_test); # make some predictions
+
 julia> mean(preds .== y_test)
 0.9504373177842566
 ```

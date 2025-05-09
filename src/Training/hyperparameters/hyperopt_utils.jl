@@ -91,10 +91,11 @@ make_stratified_cvfolds(
 ```
 Creates `nfold`-fold stratified cross validation train/validation splits for hyperparameter tuning, with the form:
 
+```julia-repl
+julia> train_indices_fold_i, validation_indices_fold_i = folds[i];
+
 ```
-julia> train_indices_fold_i, validation_indices_fold_i = folds[i]
-```
-Uses MLJs [`StratifiedCV()`](@ref MLJ.StratifiedCV) method. 
+Uses MLJs [`StratifiedCV`](@ref MLJBase.StratifiedCV) method. 
 
 """
 function make_stratified_cvfolds(Xs::AbstractMatrix, ys::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)

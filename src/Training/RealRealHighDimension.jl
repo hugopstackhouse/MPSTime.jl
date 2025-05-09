@@ -271,10 +271,12 @@ See also: [`Encoding`](@ref)
 # Example
 See ??fitMPS to for a more verbose example
 
-```
+```julia-repl
 julia> opts = MPSOptions(; d=5, chi_max=30, encoding=:Legendre, eta=0.05);
+
 julia> print_opts(opts) # Prints options as a table
 [...]
+
 julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 Generating initial weight MPS with bond dimension χ_init = 4
         using random state 1234.
@@ -296,23 +298,26 @@ Test KL Div. -9.815236609211746 | Testing acc. 0.9504373177842566.
 
 Test conf: [497 16; 35 481].
 
-julia> 
-
 ```
 
 # Extended help
-```
+```julia-repl
 julia> Using JLD2 # load some data
-julia> dloc = "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
+
+julia> dloc = "your_data_path/data.jld2";
+
 julia> f = jldopen(dloc, "r") 
            X_train = read(f, "X_train")
            y_train = read(f, "y_train")
            X_test = read(f, "X_test")
            y_test = read(f, "y_test")
        close(f);
+
 julia> opts = MPSOptions(; d=5, chi_max=30, encoding=:Legendre, eta=0.05);
+
 julia> print_opts(opts) # Prints options as a table
 [...]
+
 julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 Generating initial weight MPS with bond dimension χ_init = 4
         using random state 1234.

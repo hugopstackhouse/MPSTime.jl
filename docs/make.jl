@@ -9,8 +9,9 @@ bib = CitationBibliography(
 )
 
 links = InterLinks(
-    "Julia" => "https://docs.julialang.org/en/v1/",
-    "Optimization" => "https://docs.sciml.ai/Optimization/stable/"
+    "Julia" => ("https://docs.julialang.org/en/v1/", joinpath(@__DIR__, "backup_inventories", "Julia_obj.inv")),
+    "Optimization" => ("https://docs.sciml.ai/Optimization/stable/", joinpath(@__DIR__, "backup_inventories", "Optimization_obj.inv")),
+    "MLJBase" => ("https://juliaai.github.io/MLJ.jl/dev/", joinpath(@__DIR__, "backup_inventories", "MLJBase_obj.inv"))
 );
 
 makedocs(
@@ -37,7 +38,7 @@ makedocs(
     # debug options
     pagesonly = true, # dont compile unlisted pages
     clean=false,
-    checkdocs = :none,
+    # checkdocs = :none,
     # draft=true
     
 )

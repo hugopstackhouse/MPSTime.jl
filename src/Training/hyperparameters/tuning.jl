@@ -304,7 +304,7 @@ or `BalancedMisclassificationRate()` (1 - balanced accuracy).
 ###### Custom Loss Functions
 Custom losses can be used by implementing a custom loss value type (`CustomLoss <: TuningLoss`) and extending the definition of [`MPSTime.eval_loss`](@ref) \
 with the signature
-```
+```julia
 eval_loss(
     CustomLoss(), 
     mps::TrainedMPS, 
@@ -329,10 +329,13 @@ unless it contains a hyperparameter outside the range specified by `parameters`,
 - `foldmethod::Union{Function, AbstractVector}=make_stratified_cvfolds`: The method used to generate the train/validation folds from `Xs`. \
 Can either be an `nfolds`-long Vector of `[train_indices::Vector, validation_indices::Vector]` pairs, or a function that produces them, with the signature `foldmethod(Xs,ys, nfolds; rng::AbstractRNG)` \
 To clarify, the `tune` function determines the train/validation splits for the ith fold in the following way:
-```
+```julia-repl
 julia> folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
+
 julia> train_inds, validation_inds = folds[i];
+
 julia> X_train, y_train = Xs[train_inds, :], ys[train_inds];
+
 julia> X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];
 ```
 

@@ -153,7 +153,7 @@ function _mar_sample(X::AbstractVector, fraction_missing::Float64, rng::Abstract
 end
 
 """
-```
+```julia
 mnar(
     X::AbstractVector, 
     fraction_missing::Float64, 
