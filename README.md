@@ -10,12 +10,12 @@
 
 
 <p align="center">
-  <a href="https://joshuabmoore.github.io/MPSTime.jl/dev/">
+  <a href="https://hugopstackhouse.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?" alt="docs - latest">
   </a>
     <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?" alt="version - 0.1.0-DEV">
   </a>
-    <img src="https://github.com/joshuabmoore/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
+    <img src="https://github.com/hugopstackhouse/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
   </a>
   <a href="https://github.com/JuliaTesting/Aqua.jl">
     <img src="https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg">
@@ -29,12 +29,12 @@ This is not yet a registered Julia package, but it will be soon (TM)! In the mea
 
 ```Julia
 julia> ]
-pkg> add https://github.com/joshuabmoore/MPSTime.jl.git
+pkg> add https://github.com/hugopstackhouse/MPSTime.jl.git
 ```
 
 ## Usage and Documentation
-We provide [tutorials](https://joshuabmoore.github.io/MPSTime.jl/dev/classification/) and basic usage examples in the documentation:
-- [LATEST DOCS](https://joshuabmoore.github.io/MPSTime.jl/) -- the latest documentation.
+We provide [tutorials](https://hugopstackhouse.github.io/MPSTime.jl/dev/classification/) and basic usage examples in the documentation:
+- [LATEST DOCS](https://hugopstackhouse.github.io/MPSTime.jl/) -- the latest documentation.
 
 ## Citation
 If you use this software in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):
@@ -54,4 +54,4 @@ If you use this software in your work, please read and cite the [arXiv preprint]
 We welcome contributions from the community! 
 MPSTime is under active development and resarch, making it an exciting opprtunity for collaboration.
 Whether you are interested in adding new features, improving existing documentation, fixing bugs, or sharing ideas, your input is valuable.
-Feel free to submit a [PR](https://github.com/joshuabmoore/MPSTime.jl/pulls) or open an [issue](https://github.com/joshuabmoore/MPSTime.jl/issues) for discussion.
+Feel free to submit a [PR](https://github.com/hugopstackhouse/MPSTime.jl/pulls) or open an [issue](https://github.com/hugopstackhouse/MPSTime.jl/issues) for discussion.
