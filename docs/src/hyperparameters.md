@@ -296,6 +296,7 @@ fold 3: t=42210.43: training MPS with (chi_max = 48, d = 12)...  done
 ```
 
 ```julia-repl
+julia> losses = getindex.(results, "opts");
 
 julia> mean.(losses)
 3-element Vector{Float64}:
@@ -303,7 +304,7 @@ julia> mean.(losses)
  0.21129840885487566
  0.21441462843171047
 
-julia> losses = getindex.(results, "opts")
+julia> getindex.(results, "opts") # print out the MPSOptions objects
 3-element Vector{MPSOptions}:
  MPSOptions(-5, 10, 47, 0.01, 11, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
 (false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, "divide_and_conquer")
