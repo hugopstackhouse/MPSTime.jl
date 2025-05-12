@@ -179,6 +179,7 @@ julia> py"""
     sp = StratifiedShuffleSplit(n_splits=$nresamples, test_size=$(length(y_test)), random_state=1)
     folds_py = sp.split($Xs, $ys)
     """
+
 julia> folds = [(tr_inds .+ 1, te_inds .+ 1) for (tr_inds, te_inds) in py"folds_py"] # shift indices up by 1
 3-element Vector{Tuple{Vector{Int64}, Vector{Int64}}}:
  ([197, 472, 462, 108, 133, 258, 179, 57, 149, 373  …  279, 94, 234, 473, 319, 378, 387, 92, 359, 35], [354, 313, 137, 239, 316, 479, 274, 145, 134, 485  …  110, 417, 346, 141, 165, 50, 77, 23, 347, 130])
@@ -283,6 +284,50 @@ results = evaluate(
     eval_windows=mcar_windows,
     tuning_maxiters=20,
 )
+```
+```
+Fold 1: iter 1, cvfold 1: training MPS with (chi_max = 50, d = 12)...
+     
+[...]
+
+Fold 3: iter 20, cvfold 5: finished. MPS (chi_max = 35, d = 8) finished in 635.05s (train=255.05s, loss=380.0s)
+Fold 3: iter 20, t=20328.2: Mean CV Loss: 0.24440015696620948
+fold 3: t=42210.43: training MPS with (chi_max = 48, d = 12)...  done
+```
+
+```julia-repl
+
+julia> mean.(losses)
+3-element Vector{Float64}:
+ 0.21739511880650658
+ 0.21129840885487566
+ 0.21441462843171047
+
+julia> losses = getindex.(results, "opts")
+3-element Vector{MPSOptions}:
+ MPSOptions(-5, 10, 47, 0.01, 11, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
+(false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, "divide_and_conquer")
+ MPSOptions(-5, 10, 50, 0.01, 12, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
+(false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, "divide_and_conquer")
+ MPSOptions(-5, 10, 48, 0.01, 12, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
+(false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, "divide_and_conquer")
+
+julia> results[1]
+Dict{String, Any} with 13 entries:
+  "time"           => 6152.08
+  "objective"      => "ImputationLoss()"
+  "train_inds"     => [340, 445, 262, 132, 89, 379, 225, 59, 224, 57  …  495, 484, 355, 322, 284, 363, …
+  "optimiser"      => "MPSRandomSearch(:LatinHypercube)"
+  "fold"           => 1
+  "test_inds"      => [133, 477, 112, 148, 13, 453, 342, 83, 252, 455  …  151, 483, 74, 380, 61, 297, 1…
+  "tuning_windows" => [[35, 97], [10, 36, 38, 49, 60, 62, 65, 72, 81, 82, 88, 92, 93, 97], [9, 16, 24, …
+  "eval_windows"   => [[35, 97], [10, 36, 38, 49, 60, 62, 65, 72, 81, 82, 88, 92, 93, 97], [9, 16, 24, …
+  "cache"          => Dict((49, 10)=>0.217511, (41, 10)=>0.233205, (45, 8)=>0.231089, (31, 8)=>0.259456…
+  "tuning_pms"     => nothing
+  "loss"           => [0.192093, 0.193801, 0.183081, 0.189859, 0.194329, 0.19409, 0.211727, 0.235688, 0…
+  "eval_pms"       => nothing
+  "opts"           => MPSOptions(-5, 10, 47, 0.01, 11, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64…
+
 
 ```
 

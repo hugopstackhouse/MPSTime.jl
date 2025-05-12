@@ -36,7 +36,7 @@ makedocs(
         "References" => "references.md",
     ],
     # debug options
-    pagesonly = true, # dont compile unlisted pages
+    # pagesonly = true, # dont compile unlisted pages
     clean=false,
     # checkdocs = :none,
     # draft=true
@@ -44,7 +44,7 @@ makedocs(
 )
 
 # deploydocs(
-#     repo = "github.com/joshuabmoore/MPSTime.jl.git",
+#     repo = "github.com/hugopstackhouse/MPSTime.jl.git",
 # )
 
 # Documenter can also automatically deploy documentation to gh-pages.
