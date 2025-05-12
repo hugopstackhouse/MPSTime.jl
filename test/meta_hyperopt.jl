@@ -1,64 +1,45 @@
-using Revise
-using MPSTime
 using JLD2
 using Distributed
-# using Optimization
-using OptimizationBBO
 using Random
-# using OptimizationMetaheuristics
-# using OptimizationOptimJL
-# using OptimizationNLopt
-# using OptimizationOptimisers
+using Statistics
+
 
 Random.seed!(1)
-@load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
+@load "Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
 params = (
     eta=logrange(10^-3,0.5; length=10), 
     d=[2,5,7,8,15],#5,15), 
     chi_max=(5,5,10)#20,40),
 ) 
-nfolds = 2
+nfolds = 5
 
 e = copy(ENV)
 e["OMP_NUM_THREADS"] = "1"
 e["JULIA_NUM_THREADS"] = "1"
 
 if nprocs() == 1
-    addprocs(2; env=e, exeflags="--heap-size-hint=2G", enable_threaded_blas=false)
+    addprocs(nfolds; env=e, exeflags="--heap-size-hint=2G", enable_threaded_blas=false)
 end
 
-@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
+@everywhere using MPSTime, Distributed
 
-rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
-fold_idxs = read(rs_f, "rs_folds_julia");
-close(rs_f)
-
-@load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
-folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"][1:10]) for i in 1:30]
 
 Xs = vcat(X_train, X_test)
-ys = zeros(Int, size(Xs, 1))
+ys = vcat(y_train, y_test)
 res = evaluate(
     Xs,
     ys,
     nfolds,
     params,
     MPSRandomSearch(); 
-    objective=ImputationLoss(), 
-    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=false), 
+    objective=MisclassificationRate(), 
+    opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=10, sigmoid_transform=true), 
     n_cvfolds=2,
-    eval_windows=windows_julia,
-    eval_pms=nothing,#collect(5:20:95) ./100,
-    tuning_windows = nothing,
-    tuning_pms=collect(5:10:95) ./100,
-    tuning_abstol=1e-9, 
-    tuning_maxiters=11,
-    verbosity=2,
-    foldmethod=folds,
+    tuning_maxiters=5,
+    verbosity=-1,
     input_supertype=Float64,
     provide_x0=false,
-    # logspace_eta=true,
     distribute_folds=true,
     distribute_cvfolds=false,
     distribute_iters=false,
@@ -66,3 +47,19 @@ res = evaluate(
     write=false,
     writedir="IPD_final"
 )
+
+@load "Data/eval_results.jld2" res_baseline
+
+for i in eachindex(res)
+    # opts
+    local opts = res[i]["opts"] 
+    local opts_bl = res_baseline[i]["opts"]
+    @test opts.d == opts_bl.d && opts.chi_max == opts_bl.chi_max && isapprox(opts.eta, opts_bl.eta)
+
+    @test res[i]["train_inds"] == res_baseline[i]["train_inds"] && res[i]["test_inds"] == res_baseline[i]["test_inds"]
+end
+
+mean_loss = mean(getindex.(res, "loss"))[1]
+ml_baseline = mean(getindex.(res_baseline, "loss"))[1]
+
+@test isapprox(mean_loss, ml_baseline)

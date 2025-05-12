@@ -201,7 +201,7 @@ function evaluate(
             end
         end
 
-        println("Beginning fold $fold:")
+        verbosity > -1 && println("Beginning fold $fold:")
         tbeg = time()
         (train_inds, test_inds) = folds[fold]
         X_train, y_train, X_test, y_test = Xs[train_inds,:], ys[train_inds], Xs[test_inds,:], ys[test_inds]
@@ -242,7 +242,7 @@ function evaluate(
         end
         verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with $(best_params)... ")
         mps, _... = fitMPS(X_train, y_train, opts);
-        println(" done")
+        verbosity >= 1 && println(" done")
         p_fold = verbosity, "Fold $fold: ", tstart, nothing, nfolds
         res_iter = Dict(
             "fold"=>fold,

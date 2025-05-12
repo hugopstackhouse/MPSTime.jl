@@ -2,7 +2,9 @@ using JLD2
 using Random
 
 # ecg200 dataset
-@load "Data/ecg200/mps_saves/test_dataset.jld2" mps X_train y_train X_test y_test
+@load "Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
+opts = MPSOptions(verbosity=-1, log_level=0)
+mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts)
 
 imp = init_imputation_problem(mps, X_test, y_test; verbosity=-10);
 imp_rtol = 0.0001;
@@ -24,7 +26,7 @@ _,_,_, stats_pm80, plots_pm80 = MPS_impute(
     plot_fits=true, # whether to plot the fits
 )
 
-# we don't watnt to be _that_ precise here becase the fperror can really add up depending on what architecture this is running on
+# we don't want to be _that_ precise here becase the fperror can really add up depending on what architecture this is running on
 @test isapprox(stats_pm80[1][:MAPE], 0.3891078249307531; rtol=imp_rtol)
 @test isapprox(stats_pm80[1][:NN_MAPE], 0.5319691385738694; rtol=imp_rtol)
 
