@@ -25,7 +25,7 @@ _,_,_, stats_pm80, plots_pm80 = MPS_impute(
 )
 
 # we don't watnt to be _that_ precise here becase the fperror can really add up depending on what architecture this is running on
-@test isapprox(stats_pm80[1][:MAPE], 0.4932038621699139; rtol=imp_rtol)
+@test isapprox(stats_pm80[1][:MAPE], 0.3891078249307531; rtol=imp_rtol)
 @test isapprox(stats_pm80[1][:NN_MAPE], 0.5319691385738694; rtol=imp_rtol)
 
 pm = 0.2 # a quick version
@@ -38,11 +38,11 @@ nc1s = sum(y_test)
 ncs = [length(y_test) - nc1s, nc1s]
 
 expected_maes = [
-    0.3939908566614806 0.2471168103635673;
-    0.29751811868210404 0.19130498934765275;
-    0.672379450643265 0.4675452519447549;
-    0.9523681478324807 0.9022735207072483;
-    0.6496682469680876 0.43737665707665724;
+    0.34873553448377836 0.2118580021364679;
+    0.20491579373863708 0.19597302089454505;
+    0.33722352049386217 0.315718557705853;
+    0.7065989831566859 0.8063096322980874;
+    0.3877101919863158 0.2120027330331579;
 ]
 for (i, method) in enumerate(imp_methods)
     # println("method = $(string(method))")

@@ -27,6 +27,7 @@ end
 @testset "Classifier" begin
     include("classification.jl")
 end
+
 @testset "Imputation" begin
     include("imputation.jl")
 end

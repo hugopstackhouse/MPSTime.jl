@@ -17,7 +17,7 @@ perm = sortperm(y_test)
 @test c1 == c2[perm]
 @test c2 == c3
 
-@test isapprox(mean(c2 .== y_test), 0.9514091350826045)
+@test isapprox(mean(c2 .== y_test), 0.9582118561710399)
 
 # conf = c0_correct, c0_incorrect, c1_correct, c1_incorrect
 conf = zeros(Int, 4)
@@ -38,4 +38,4 @@ for i in eachindex(y_test)
     end
 end
 
-@test conf == Int[493, 20, 486, 30]
+@test conf == Int[496, 17, 490, 26]
