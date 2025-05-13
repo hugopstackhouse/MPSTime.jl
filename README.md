@@ -13,7 +13,7 @@
   <a href="https://hugopstackhouse.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?" alt="docs - latest">
   </a>
-    <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?" alt="version - 0.2.0-DEV">
+    <img src="https://img.shields.io/badge/version-0.2.0--DEV-blue?" alt="version - 0.2.0-DEV">
   </a>
     <img src="https://github.com/hugopstackhouse/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
   </a>
