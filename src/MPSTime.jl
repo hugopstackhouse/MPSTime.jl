@@ -59,6 +59,7 @@ using Markdown # Documentation
 using Tables # Used for MLJ
 using MLJ # Used for MLJ Integration
 import MLJModelInterface # MLJ Integration
+using Documenter # pretty docstrings
 
 # Custom Data Structures and types - include first
 include("Structs/structs.jl") # Structs used to hold data during training, useful value types, and wrapper types like "BBOpt".
@@ -164,6 +165,7 @@ export
     mnar, # simulate missing not at random mechanism for imputation
     mar, # simulate missing at random mechanism for imputation
     trendy_sine, # simulate noise corrupted trendy sinusoid
+    state_space, # Generate time series from a state space model with residual terms drawn from a normal distribution
 
     # hyperparameter tuning
     tune,

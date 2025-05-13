@@ -1,6 +1,3 @@
-```@meta
-Draft = false
-```
 # [Classification](@id Classification_top)
 
 This tutorial for MPSTime will take you through the basic steps needed to fit an MPS to a time-series dataset.
@@ -93,7 +90,8 @@ get_training_summary(mps, test_states; print_stats=true);
 
 ## [Hyperparameters](@id c_hparams)
 
-There are number of hyperparameters and data preprocessing options that can be specified using `MPSOptions(; key=value)`
+There are number of hyperparameters and data preprocessing opttrendy_sine
+ions that can be specified using `MPSOptions(; key=value)`
 
 
 ```@docs
@@ -144,6 +142,7 @@ julia> mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, MPSOpti
 ## Docstrings
 
 ```@docs
+trendy_sine
 fitMPS(::Matrix, ::Vector, ::Matrix, ::Vector, ::MPSOptions, ::Nothing)
 sweep_summary(io::Union{Nothing,IO}, info)
 get_training_summary(io::IO, mps::TrainedMPS, test_states::EncodedTimeSeriesSet)

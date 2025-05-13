@@ -1,6 +1,3 @@
-```@meta
-Draft = false
-```
 # [Imputation](@id Imputation_top)
 ## Overview 
 #### Imputation Scenarios
@@ -18,7 +15,7 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 
 The first step is to train an MPS. Here, we'll train an MPS in an unsupervised manner (no class labels) using an adapted version of the noisy trendy sinusoid dataset from the [`Classification`](@ref nts_demo) tutorial.
 
-```@example imputation; continued=true
+```@setup imputation
 using MPSTime, Random 
 rng = Xoshiro(1); # fix rng seed
 ntimepoints = 100; # specify number of samples per instance.
@@ -33,8 +30,23 @@ opts = MPSOptions(
     sigmoid_transform=false # disabling preprocessing generally improves imputation performance.
 ) 
 mps, info, test_states = fitMPS(X_train, opts);
+```
 
-nothing # hide
+```julia
+using MPSTime, Random 
+rng = Xoshiro(1); # fix rng seed
+ntimepoints = 100; # specify number of samples per instance.
+ntrain_instances = 300; # specify num training instances
+ntest_instances = 200; # specify num test instances
+X_train = trendy_sine(ntimepoints, ntrain_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
+X_test = trendy_sine(ntimepoints, ntest_instances; sigma=0.2, slope=3, period=15, rng=rng)[1];
+# hyper parameters and training
+opts = MPSOptions(
+    d=12, 
+    chi_max=40, 
+    sigmoid_transform=false # disabling preprocessing generally improves imputation performance.
+) 
+mps, info, test_states = fitMPS(X_train, opts);
 ```
 
 Next, we initialize an imputation problem. This does a lot of necessary pre-computation:
@@ -217,7 +229,6 @@ nothing # hide
 init_imputation_problem(::TrainedMPS, ::Matrix)
 MPS_impute
 get_cdfs
-trendy_sine
 MPSTime.state_space
 ```
 

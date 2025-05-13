@@ -19,9 +19,9 @@ trendy_sine(T::Int, n::Int; period=nothing, slope=nothing, phase=nothing, sigma=
 Generate `n` time series of length `T`, each composed of a sine wave with an optional linear trend and Gaussian noise defined by the
 equation:
 ```math
-x_t = \\sin\\left(\\frac{2\\pi}{\\tau}t + \\psi\\right) + \\frac{mt}{T} + \\sigma n_t
+x_t = \\sin\\left(\\frac{2\\pi}{\\tau}t + \\psi\\right) + \\frac{m t}{T} + \\sigma n_t
 ```
-with period ``\\tau``, time point ``\\t``, linear trend slope ``\\m``, phase offset ``\\psi``, noise scale ``\\sigma`` and ``\\n_t \\sim \\N(0,1)``
+with period ``\\tau``, time point ``t``, linear trend slope ``m``, phase offset ``\\psi``, noise scale ``\\sigma`` and ``n_t \\sim \\mathcal{N}(0,1)``
 # Arguments
 - `T::Int`: Length of each time series
 - `n::Int`: Number of time series instances to generate
@@ -111,13 +111,13 @@ end
 Generate `n` time series of length `T` each from a state space model with residual terms drawn from a normal distribution
 N(0, `sigma`) and lag order `s`. Time series are generated from the following model:
 ```math
-\\x_t = \\mu_t + \\theta_t + \\eta_t
+x_t = \\mu_t + \\theta_t + \\eta_t
 \\mu_t = \\mu_{t-1} + \\lambda_{t-1} + \\xi_t
 \\lambda_t = \\lambda_{t-1} + \\zeta_{t}
 \\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t
 ```
-where ``\\x_t`` is the ``\\t``-th value in the time series, and the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
-randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
+where ``x_t`` is the ``t``-th value in the time series, and the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
+randomly drawn from a normal distribution ``\\mathcal{N}(0, \\sigma)``.
 
 # Arguments
 - `T` -- Time series length.
@@ -129,7 +129,7 @@ randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
 - `rng` -- Random number generator of type `AbstractRNG` (optional, default: `Random.GLOBAL_RNG`).
 
 # Returns 
-A Matrix{Float64} of shape (n, T) containing the simulated time-series instances. 
+A `Matrix{Float64}` of shape (n, T) containing the simulated time-series instances. 
 """
 function state_space(T::Int, n::Int; s::Int=2, sigma::Float64=0.3, rng::AbstractRNG=Random.GLOBAL_RNG)
     if s < 2

@@ -1,7 +1,3 @@
-```@meta
-Draft = false
-
-```
 # Encodings
 ## Overview
 To use MPS methods on time-series data, the continuous time-series amplitudes must be mapped to MPS compatible vectors using an *encoding*. There are a number of encodings built into this library, and they can be specified by the `encoding` keyword in [`MPSOptions`](@ref).
