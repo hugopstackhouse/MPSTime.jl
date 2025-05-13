@@ -47,6 +47,10 @@ A summary of the imputation problem setup is printed to verify the model paramet
 For __multi-class__ data, you can pass `y_test` to `init_imputation_problem` in order to exploit the labels / class information while doing imputation.
 
 ## Imputing missing values
+!!! warning "Floating Point Error"
+    Depending on the dataset, the results of `fitMPS` can be noticeably affected by what machine it is running on. If you're trying to replicate these
+    tutorials, expect an average uncertainty of 1-2%. In rare cases, it can go up to 5%-10% for single imputation windows in particularly large datasets. We strongly recommend either using higher precision computing (pass `dtype=BigFloat` or `Complex{BigFloat}` to [`MPSOptions`](@ref)), or the [`evaluate`](@ref) function to resample your data and average the result. This is generally not significant for scientific computing applications as for real word datasets, the floating point error of up to a few percent is much less than the resampling error caused by choosing different train/test splits.
+
 ### Single-block Imputation
 Now, decide how you want to impute the missing data.
 The necessary options are:

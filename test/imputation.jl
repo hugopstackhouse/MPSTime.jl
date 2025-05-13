@@ -3,8 +3,12 @@ using Random
 
 # ecg200 dataset
 @load "Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
-opts = MPSOptions(verbosity=-1, log_level=0)
-mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts)
+
+# opts = MPSOptions(verbosity=3, log_level=0, dtype=BigFloat, nsweeps=3)
+# setprecision(60)
+# mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts)
+@load "Data/ecg200/mps_saves/60_prec_ecg.jld2" mps info test_states
+
 
 imp = init_imputation_problem(mps, X_test, y_test; verbosity=-10);
 imp_rtol = 0.0001;
@@ -27,7 +31,7 @@ _,_,_, stats_pm80, plots_pm80 = MPS_impute(
 )
 
 # we don't want to be _that_ precise here becase the fperror can really add up depending on what architecture this is running on
-@test isapprox(stats_pm80[1][:MAPE], 0.3891078249307531; rtol=imp_rtol)
+@test isapprox(stats_pm80[1][:MAPE], 0.3830051169633825; rtol=imp_rtol)
 @test isapprox(stats_pm80[1][:NN_MAPE], 0.5319691385738694; rtol=imp_rtol)
 
 pm = 0.2 # a quick version
@@ -40,12 +44,30 @@ nc1s = sum(y_test)
 ncs = [length(y_test) - nc1s, nc1s]
 
 expected_maes = [
-    0.34873553448377836 0.2118580021364679;
-    0.20491579373863708 0.19597302089454505;
-    0.33722352049386217 0.315718557705853;
-    0.7065989831566859 0.8063096322980874;
+    0.36581457566749176 0.2204382247157053;
+    0.17783806685365627 0.1876692173707628;
+    0.33536170154856404 0.3271278413457546;
+    0.7649367656713248 0.8727296222420307;
     0.3877101919863158 0.2120027330331579;
 ]
+# maes BigFloat-256
+# 5×2 Matrix{Float64}:
+#  0.347927  0.21203
+#  0.17893   0.196088
+#  0.35399   0.351822
+#  0.738057  0.857018
+#  0.38771   0.212003
+
+# cluster version
+# maes BigFloat-256
+# 5×2 Matrix{Float64}:
+#  0.347927  0.21203
+#  0.17893   0.196088
+#  0.35399   0.351822
+#  0.738057  0.857018
+#  0.38771   0.212003
+
+maes = Matrix{Float64}(undef, size(expected_maes)...)
 for (i, method) in enumerate(imp_methods)
     # println("method = $(string(method))")
    
@@ -59,7 +81,7 @@ for (i, method) in enumerate(imp_methods)
         mae = 0.
         for instance_idx in idxs
             # println("idx=$(instance_idx)")
-            _, impute_sites_pm20 = mar(X_test[instance_idx, :], pm; rng=rng) # state=1000*i + 100*ci + instance_idx
+            _, impute_sites_pm20 = mar(X_test[instance_idx, :], pm; rng=rng) 
             _, _, _, stats_pm20, plots_pm20 = MPS_impute(
                 imp,
                 class, 
@@ -72,6 +94,7 @@ for (i, method) in enumerate(imp_methods)
             mae += stats_pm20[1][:MAE]
         end
         #@show mae/length(idxs)
-        @test isapprox(expected_maes[i, ci], mae / length(idxs); rtol=imp_rtol)
+        maes[i,ci] = mae / length(idxs)
+        @test isapprox(expected_maes[i, ci], maes[i,ci]; rtol=imp_rtol)
     end
 end
