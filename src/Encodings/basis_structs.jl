@@ -4,8 +4,9 @@
 
 Abstract supertype of all encodings. To specify an encoding for MPS training, set the `encoding` keyword when calling `MPSOptions`.
 # Example
-```
+```julia-repl
 julia> opts = MPSOptions(; encoding=:Legendre);
+
 julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 ```
 # Encodings
@@ -26,10 +27,12 @@ julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 - `:Sahand_Legendre_Time_Dependent`:  (:SLTD) A custom, real-valued encoding constructed as a data-driven adaptation of the Legendre Polynomials. At each time point, ``t``, the training data is used to construct a probability density function that describes the distribution of the time-series amplitude ``x_t``. This is the first basis function. 
 
     ``b_1(x; t) = \\text{pdf}_{x_t}(x_t)``. This is computed with KernelDensity.jl:
-```
+```julia-repl
 julia> Using KernelDensity
-julia> xs_samps = range(-1,1, max(200,size(X_train,2)))
-julia> b1(xs,t) = pdf(kde(X_train[t,:]), xs_samps)
+
+julia> xs_samps = range(-1,1, max(200,size(X_train,2)));
+
+julia> b1(xs,t) = pdf(kde(X_train[t,:]), xs_samps);
 ```
 The second basis function is the first order polynomial that is L2-orthogonal to this pdf on the interval [-1,1]. 
 
@@ -215,15 +218,17 @@ for example, the polynomial coefficients for the Sahand-Legendre basis. This fun
 # Example
 The Legendre Polynomial Basis:
 
-```
-julia> Using LegendrePolynomials
-julia> function legendre_encode(x::Float64, d::Int)
+```julia
+using MPSTime, LegendrePolynomials
+function legendre_encode(x::Float64, d::Int)
     # default legendre encoding: choose the first n-1 legendre polynomials
 
     leg_basis = [Pl(x, i; norm = Val(:normalized)) for i in 0:(d-1)] 
     
     return leg_basis
-julia> custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+end
+custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+
 ```
 
 """

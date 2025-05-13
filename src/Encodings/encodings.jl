@@ -1,9 +1,13 @@
-function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{Int64}}, encoding_args::AbstractVector; opts::Options=Options())
+function encode_TS(
+        sample::AbstractVector, 
+        site_indices::AbstractVector{Index{Int64}}, 
+        encoding_args::AbstractVector; opts::Options=Options()
+    )
     """Function to convert a single normalised sample to a product state
     with local dimension as specified by the feature map."""
 
     n_sites = length(site_indices) # number of mps sites
-    product_state = MPS(opts.dtype,site_indices; linkdims=1)
+    product_state = Vector{Vector}(undef, n_sites)
     
     
     # check that the number of sites matches the length of the time series
@@ -19,7 +23,7 @@ function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{In
             states = opts.encoding.encode(sample[j], opts.d, encoding_args...)
         end
 
-        product_state[j] = ITensor(opts.dtype, states, site_indices[j])
+        product_state[j] = states
     end
 
     return product_state
@@ -43,7 +47,15 @@ end
 
 
 
-function encode_safe_dataset(::EncodeSeparate{true}, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, type::String, site_indices::AbstractVector{Index{Int64}}; kwargs...)
+function encode_safe_dataset(
+        ::EncodeSeparate{true}, 
+        X_orig::AbstractMatrix, 
+        X_norm::AbstractMatrix, 
+        y::AbstractVector, 
+        type::String, 
+        site_indices::AbstractVector{Index{Int64}}; 
+        kwargs...
+    )
     # X_norm has dimension num_elements * numtimeseries
 
     classes = unique(y)

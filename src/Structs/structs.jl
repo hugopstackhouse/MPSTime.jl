@@ -1,7 +1,8 @@
 # type aliases
-const PCache = Matrix{ITensor}
-const PCacheCol = AbstractVector{ITensor} # for view mapping shenanigans
+const PCache = Matrix{Vector}
+const PCacheCol = AbstractVector{Vector} # for view mapping shenanigans
 const Maybe{T} = Union{T,Nothing} 
+const BondTensor = Matrix
 
 # value types
 struct TrainSeparate{Bool} end # value type to determine whether training is together or separate
@@ -12,7 +13,7 @@ struct DataIsRescaled{Bool} end # Value type to tell fitMPS the data has already
 struct PState
     """Create a custom structure to store product state objects, 
     along with their associated label and type (i.e, train, test or valid)"""
-    pstate::MPS
+    pstate::Vector{Vector}
     label::Any # TODO make this a fancy scientific type
     label_index::UInt
 end

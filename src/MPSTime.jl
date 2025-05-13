@@ -2,20 +2,31 @@ module MPSTime
 
 # Import these two libraries First and in this order
 using GenericLinearAlgebra
-using MKL
+# using MKL (Banished for crimes)
 
+using LinearAlgebra # low level blas algorithms
 using Strided # strided array support
 using ITensors 
 using NDTensors # Library that ITensors is built on, used for some hacks
+using Distributed # hyperparameter tuning reasons
+using StaticArrays # faster imputation
+using LoopVectorization # fast custom linear algebra functions
 
 using Random
 using StableRNGs # Used for some hyperparameter tuning/MLJ
 
 
 # Allow Optimisation algorithms from external libraries
+#TODO replace with the Optimization.jl versions
 using Optim
 using OptimKit
 using Normalization # Standardised normalisation by Brendan :). Used to do the preprocessing / denormalising steps
+
+# Libraries for hyperparameter tuning
+using Optimization
+using OptimizationOptimJL
+import LatinHypercubeSampling as LHS # for random search
+import MLJBase
 
 
 using LegendrePolynomials # For legendre polynomial basis
@@ -43,12 +54,11 @@ using StatsPlots, Plots, Plots.PlotMeasures # Plotting in imputation.jl
 using LaTeXStrings # Equation formatting in plot titles/axes
 using PrettyTables # Nicely formatted training / imputation text output 
 import ProgressMeter 
+using Markdown # Documentation
 
 using Tables # Used for MLJ
 using MLJ # Used for MLJ Integration
-import MLJModelInterface # MLreturnJ Integration
-import MLJTuning # Custom imputation tuning algorithm
-using MLJParticleSwarmOptimization # Used in hyperparameter tuning
+import MLJModelInterface # MLJ Integration
 
 # Custom Data Structures and types - include first
 include("Structs/structs.jl") # Structs used to hold data during training, useful value types, and wrapper types like "BBOpt".
@@ -56,6 +66,9 @@ include("Encodings/basis_structs.jl") # Definition of "Encoding", "Basis", etc
 include("Structs/options.jl") # Options and MPSOptions types, require the "Encoding" type to be defined. Also defines "TrainedMPS", which requires "MPSOptions" to be defined already.
 include("Structs/operations.jl") # includes definitions of "==" and "isapprox" for the custom datatypes.
 
+# Structs for Legacy ITensor
+include("legacy_itensor/Structs/structs.jl") # Old structs defined with ITensor 
+include("legacy_itensor/Structs/operations.jl") # Operations like '==' and 'approx' on old ITensor based structs
 
 # Functions and structs used to define basis functions / encodings
 include("Encodings/encodings.jl")
@@ -73,7 +86,13 @@ include("Vis/vis_encodings.jl")
 include("Analysis/analyse.jl")
 
 include("Training/loss_functions.jl") # Where loss functions and the LossFunction type are defined
-include("Training/RealRealHighDimension.jl"); # The training algorithm, fitMPS and co
+include("Training/RealRealHighDimension.jl") # The training algorithm, fitMPS and co
+
+# Legacy ITensor Implementation
+include("legacy_itensor/loss_functions.jl") # Loss functions for ITensor based encoding
+include("legacy_itensor/summary.jl") # 
+include("legacy_itensor/RealRealLegacyITensor.jl") # Legacy fitmps
+
 
 # Imputation
 include("Imputation/imputation.jl") # Some structs, and scaffolds for setting up and solving ImpuationProblems
@@ -86,10 +105,16 @@ include("Simulation/missing_data_mechanisms.jl"); # contains functions to simula
 include("Simulation/toy_data.jl"); # functions to simulate synthetic data
 
 
+# hyperparameter tuning
+include("Training/hyperparameters/hyperopt_utils.jl")
+include("Training/hyperparameters/random_search.jl")
+include("Training/hyperparameters/tuning.jl")
+include("Training/hyperparameters/evaluate.jl")
+
 # MLJ
 include("MLJIntegration/MLJ_integration.jl") # MLJ Integration
 include("MLJIntegration/MLJ_utils.jl")
-include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputation using MAE. MLJ was not designed for this at all 
+# include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputation using MAE. MLJ was not designed for this at all 
 
 
 export 
@@ -140,6 +165,15 @@ export
     mar, # simulate missing at random mechanism for imputation
     trendy_sine, # simulate noise corrupted trendy sinusoid
 
+    # hyperparameter tuning
+    tune,
+    evaluate,
+    is_omp_threading,
+    eval_loss,
+    ImputationLoss,
+    MisclassificationRate,
+    BalancedMisclassificationRate,
+    MPSRandomSearch,
     # MLJ 
     MPSClassifier
 end
