@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Hyperparameter Tuning · MPSTime</title><meta name="title" content="Hyperparameter Tuning · MPSTime"/><meta property="og:title" content="Hyperparameter Tuning · MPSTime"/><meta property="twitter:title" content="Hyperparameter Tuning · MPSTime"/><meta name="description" content="Documentation for MPSTime."/><meta property="og:description" content="Documentation for MPSTime."/><meta property="twitter:description" content="Documentation for MPSTime."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/citations.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img class="docs-light-only" src="../assets/logo.svg" alt="MPSTime logo"/><img class="docs-dark-only" src="../assets/logo-dark.svg" alt="MPSTime logo"/></a><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><a class="tocitem" href="../classification/">Classification</a></li><li><a class="tocitem" href="../imputation/">Imputation</a></li><li><a class="tocitem" href="../synthdatagen/">Synthetic Data Generation</a></li><li><a class="tocitem" href="../encodings/">Encodings</a></li><li class="is-active"><a class="tocitem" href>Hyperparameter Tuning</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Hyperoptimising-classification"><span>Hyperoptimising classification</span></a></li><li><a class="tocitem" href="#imputation_hyper"><span>Hyperoptimising imputation</span></a></li><li><a class="tocitem" href="#Minimising-a-custom-loss-function"><span>Minimising a custom loss function</span></a></li><li><a class="tocitem" href="#hyper_algs"><span>Choice of tuning algorithm</span></a></li><li><a class="tocitem" href="#distributed_computing"><span>Distributed computing</span></a></li><li><a class="tocitem" href="#Docstrings"><span>Docstrings</span></a></li></ul></li><li><a class="tocitem" href="../tools/">Tools</a></li><li><a class="tocitem" href="../docstrings/">Docstrings</a></li><li><a class="tocitem" href="../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Hyperparameter Tuning</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Hyperparameter Tuning</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hugopstackhouse/MPSTime.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/main/docs/src/hyperparameters.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="hyperparameters_top"><a class="docs-heading-anchor" href="#hyperparameters_top">Hyperparameter Tuning</a><a id="hyperparameters_top-1"></a><a class="docs-heading-anchor-permalink" href="#hyperparameters_top" title="Permalink"></a></h1><p>This tutorial for MPSTime will take you through tuning the hyperparameters of the <a href="../classification/#MPSTime.fitMPS-Tuple{Matrix, Vector, Matrix, Vector, MPSOptions, Nothing}"><code>fitMPS</code></a> algorithm to maximise either imputation or classification performance.</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><p>For this tutorial, we&#39;ll be solving a classification hyperoptimisation problem and an imputation hyperoptimisation problem use the same noisy trendy sinusoid dataset from the <a href="../classification/#Classification_top"><code>Classification</code></a> and <a href="../imputation/#Imputation_top"><code>Imputation</code></a> sections.</p><pre><code class="language-julia hljs">using MPSTime, Random
+rng = Xoshiro(1); # fix rng seed
+ntimepoints = 100; # specify number of samples per instance
+ntrain_instances = 300; # specify num training instances
+ntest_instances = 200; # specify num test instances
+X_train = vcat(
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(12,15), rng=rng)[1],
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2; sigma=0.1, slope=[-3,0,3], period=(16,19), rng=rng)[1]
+);
+y_train = vcat(
+    fill(1, ntrain_instances ÷ 2),
+    fill(2, ntrain_instances ÷ 2)
+);
+X_test = vcat(
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(12,15), rng=rng)[1],
+    trendy_sine(ntimepoints, ntest_instances ÷ 2; sigma=0.2, slope=[-3,0,3], period=(16,19), rng=rng)[1]
+);
+y_test = vcat(
+    fill(1, ntest_instances ÷ 2),
+    fill(2, ntest_instances ÷ 2)
+);</code></pre><div class="admonition is-info" id="Info-60f6b166f3c578c3"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-60f6b166f3c578c3" title="Permalink"></a></header><div class="admonition-body"><p>Given how computationally intensive hyperparameter tuning can be, if you&#39;re running these examples yourself it&#39;s a good idea to take advantage of the multiprocessing built into the MPSTime library (see the <a href="#distributed_computing">Distributed Computing</a> section). </p></div></div><h2 id="Hyperoptimising-classification"><a class="docs-heading-anchor" href="#Hyperoptimising-classification">Hyperoptimising classification</a><a id="Hyperoptimising-classification-1"></a><a class="docs-heading-anchor-permalink" href="#Hyperoptimising-classification" title="Permalink"></a></h2><p>The hyperparameter tuning algorithms supported by MPSTime supports every numerical hyperparameter that may be specified by <a href="../classification/#MPSTime.MPSOptions"><code>MPSOptions</code></a>. For this problem, we&#39;ll generate a small search space over the three most important hyperparameters: the maximum MPS bond dimension <code>chi_max</code>, the physical dimension <code>d</code>, and the learning rate <code>eta</code>. Every other hyperparamter will be left at its default value.</p><p>The variables to optimise, along with their upper and lower bounds are specified with the syntax <code>params = (&lt;variable_name_1&gt;=(&lt;lower_bound_1&gt;, &lt;upper_bound_1&gt;), ...)</code>, e.g.</p><pre><code class="language-julia hljs">params = (
+    eta=(1e-3, 1e-1), 
+    d=(2,8), 
+    chi_max=(20,40)
+) </code></pre><p>When solving real-world problems, it&#39;s a good idea to explore a larger <code>d</code> and <code>chi_max</code> search space, but for this example it will serve well enough.</p><h3 id="K-fold-cross-validation-with-tune()"><a class="docs-heading-anchor" href="#K-fold-cross-validation-with-tune()">K-fold cross validation with tune()</a><a id="K-fold-cross-validation-with-tune()-1"></a><a class="docs-heading-anchor-permalink" href="#K-fold-cross-validation-with-tune()" title="Permalink"></a></h3><p>To optimise the hyperparameters on your dataset, simply call <a href="#MPSTime.tune"><code>tune</code></a>:</p><pre><code class="language-julia-repl hljs">julia&gt; nfolds = 5;
+julia&gt; best_params, cache = tune(
+    X_train, 
+    y_train, 
+    nfolds,
+    params,
+    MPSRandomSearch(); 
+    objective=MisclassificationRate(), 
+    maxiters=20, # for demonstration purposes only, typically this should be much larger
+    logspace_eta=true
+);
+iter 1, cvfold 1: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 2: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 3: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 4: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 5: training MPS with (chi_max = 37, d = 8, eta = 0.023357214690901226)...
+iter 1, cvfold 1: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 128.25s (train=126.38s, loss=1.87s)
+iter 1, cvfold 2: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 129.0s (train=127.11s, loss=1.89s)
+iter 1, cvfold 3: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 128.57s (train=126.74s, loss=1.84s)
+iter 1, cvfold 4: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 128.78s (train=126.96s, loss=1.82s)
+iter 1, cvfold 5: finished. MPS (chi_max = 37, d = 8, eta = 0.023357214690901226) finished in 127.77s (train=125.94s, loss=1.83s)
+iter 1, t=139.39: Mean CV Loss: 0.040000000000000015
+iter 2, cvfold 1: training MPS with (chi_max = 39, d = 6, eta = 0.0379269019073225)...
+  
+[...]
+
+iter 20, cvfold 4: finished. MPS (chi_max = 21, d = 2, eta = 0.018329807108324356) finished in 13.52s (train=13.45s, loss=0.08s)
+iter 20, cvfold 5: finished. MPS (chi_max = 21, d = 2, eta = 0.018329807108324356) finished in 14.98s (train=14.47s, loss=0.5s)
+iter 20, t=843.55: Mean CV Loss: 0.08
+
+julia&gt; best_params
+(chi_max = 31,
+ d = 4,
+ eta = 0.07847599703514611,)
+
+julia&gt; cache[values(best_params)] # retrieve loss from the cache
+0.0033333333333333435 # equivalent to 99.67% accuracy</code></pre><p>which returns <code>best params</code>: a named tuple containing the optimised hyperparameters, and <code>cache</code>: a dictionary that saves the mean loss of every tested hyperparameter combination.</p><p>The arguments used here are:</p><ul><li><code>X_train</code>: timeseries data in a matrix, time series are rows.</li><li><code>y_train</code>: Vector of time series class labels.</li><li><code>nfolds</code>: Number of cross validiation folds to use. Folding type can be specified with the <code>foldmethod</code> keyword.</li><li><code>params</code>: Hyperparameters to tune and their upper and lower bounds, see previous section.</li><li><code>MPSRandomSearch()</code>: The tuning algorithm to use, see the <a href="#hyper_algs"><code>tuning algorithm</code></a> section.</li><li><code>objective=MisclassificationRate()</code>: Optimise the raw misclassification rate (1 - accuracy). The other options are <code>BalancedMisclassificationRate</code> (optimises balanced accuracy), or <code>ImputationLoss()</code> (see <a href="#imputation_hyper">imputation hyperoptimisation</a>).</li><li><code>maxiters=20</code>: The maximum number of solver iterations. Here we use a very small number for demonstration reasons.</li><li><code>logspace_eta=true</code>: A useful option that tells the tuning algorithm to sample the eta search space logarithmically.</li></ul><p>There are many more customisation options for <a href="#MPSTime.tune"><code>tune</code></a>, see the docstring and extended help for more information / advanced usecases.</p><h3 id="Evaluating-model-performance-with-evaluate()"><a class="docs-heading-anchor" href="#Evaluating-model-performance-with-evaluate()">Evaluating model performance with evaluate()</a><a id="Evaluating-model-performance-with-evaluate()-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluating-model-performance-with-evaluate()" title="Permalink"></a></h3><p>If you want to estimate the performance of MPSTime on a dataset, you can call the <a href="#MPSTime.evaluate"><code>evaluate</code></a> function, which resamples your data into train/test splits using a provided resampling strategy (default is k-fold cross validation), tunes each split on the &quot;training&quot; set, and evaluates the test set. It can be called with the following syntax:</p><pre><code class="language-julia-repl hljs">julia&gt; nresamples = 3; # number of outer &quot;resampling&quot; folds - usually 30
+
+julia&gt; Xs = vcat(X_train, X_test);
+
+julia&gt; ys = vcat(y_train, y_test);
+
+julia&gt; results = evaluate(
+    Xs,
+    ys,
+    nresamples,
+    params,
+    MPSRandomSearch(); 
+    n_cvfolds=nfolds, # the number of folds used by tune()
+    objective=MisclassificationRate(),
+    tuning_maxiters=20
+);
+Beginning fold 1:
+Fold 1: iter 1, cvfold 1: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 2: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 3: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 4: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+Fold 1: iter 1, cvfold 5: training MPS with (chi_max = 40, d = 8, eta = 0.09478947368421053)...
+
+[...]
+
+Fold 3: iter 20, cvfold 4: finished. MPS (chi_max = 28, d = 2, eta = 0.06873684210526317) finished in 19.26s (train=19.14s, loss=0.12s)
+Fold 3: iter 20, cvfold 5: finished. MPS (chi_max = 28, d = 2, eta = 0.06873684210526317) finished in 19.86s (train=19.78s, loss=0.08s)
+Fold 3: iter 20, t=875.4: Mean CV Loss: 0.011985526910900046
+fold 3: t=2899.6: training MPS with (chi_max = 39, d = 3, eta = 0.016631578947368424)...  done
+
+julia&gt; results[1]
+Dict{String, Any} with 13 entries:
+  &quot;time&quot;           =&gt; 1055.61
+  &quot;objective&quot;      =&gt; &quot;MisclassificationRate()&quot;
+  &quot;train_inds&quot;     =&gt; [340, 445, 262, 132, 89, 379, 225, 59, 224, 57  …  495, 484, 355, 322, 284, 363, …
+  &quot;optimiser&quot;      =&gt; &quot;MPSRandomSearch(:LatinHypercube)&quot;
+  &quot;fold&quot;           =&gt; 1
+  &quot;test_inds&quot;      =&gt; [133, 477, 112, 148, 13, 453, 342, 83, 252, 455  …  151, 483, 74, 380, 61, 297, 1…
+  &quot;tuning_windows&quot; =&gt; nothing
+  &quot;eval_windows&quot;   =&gt; nothing
+  &quot;cache&quot;          =&gt; Dict((39, 6, 0.0166316)=&gt;0.0149706, (33, 7, 0.0426842)=&gt;0.0300769, (36, 7, 0.0635…
+  &quot;tuning_pms&quot;     =&gt; nothing
+  &quot;loss&quot;           =&gt; [0.00598802]
+  &quot;eval_pms&quot;       =&gt; nothing
+  &quot;opts&quot;           =&gt; MPSOptions(-5, 10, 32, 0.0531053, 4, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Flo…
+
+julia&gt; losses = getindex.(results, &quot;loss&quot;)
+3-element Vector{Vector{Float64}}:
+ [0.005988023952095856]
+ [0.005988023952095856]
+ [0.0060240963855421326]
+</code></pre><p>Which outputs a results dictionary, containing the losses on each resample fold, as well as a lot of other useful information. See the <a href="#MPSTime.evaluate"><code>docstring</code></a> for more detail as well as a plethora of customistation options.</p><p>A very common extension of <code>evaluate</code> is to customise the resampling strategy. The simplest way to do this is to pass a vector of <code>(training_indices, testing_indices)</code> to the <code>foldmethod</code> keyword. For example, to use scikit-learn&#39;s <a href="https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedShuffleSplit.html#sklearn.model_selection.StratifiedShuffleSplit"><code>StratifiedShuffleSplit</code></a> to generate the train/test splits:</p><pre><code class="language-julia-repl hljs">julia&gt; using PyCall
+
+julia&gt; nresamples = 3;
+
+julia&gt; py&quot;&quot;&quot;
+    from sklearn.model_selection import StratifiedShuffleSplit # requires a python environment with sklearn installed
+    sp = StratifiedShuffleSplit(n_splits=$nresamples, test_size=$(length(y_test)), random_state=1)
+    folds_py = sp.split($Xs, $ys)
+    &quot;&quot;&quot;
+
+julia&gt; folds = [(tr_inds .+ 1, te_inds .+ 1) for (tr_inds, te_inds) in py&quot;folds_py&quot;] # shift indices up by 1
+3-element Vector{Tuple{Vector{Int64}, Vector{Int64}}}:
+ ([197, 472, 462, 108, 133, 258, 179, 57, 149, 373  …  279, 94, 234, 473, 319, 378, 387, 92, 359, 35], [354, 313, 137, 239, 316, 479, 274, 145, 134, 485  …  110, 417, 346, 141, 165, 50, 77, 23, 347, 130])
+ ([399, 105, 322, 289, 281, 187, 131, 18, 56, 231  …  463, 38, 491, 288, 408, 430, 330, 185, 481, 353], [345, 469, 396, 10, 96, 452, 245, 76, 367, 84  …  202, 153, 94, 446, 372, 152, 79, 387, 51, 301])
+
+[...]
+
+julia&gt; results = evaluate(
+    Xs,
+    ys,
+    nresamples,
+    params,
+    MPSRandomSearch(); 
+    objective=MisclassificationRate(),
+    tuning_maxiters=20,
+    foldmethod=folds
+);
+[...]</code></pre><h2 id="imputation_hyper"><a class="docs-heading-anchor" href="#imputation_hyper">Hyperoptimising imputation</a><a id="imputation_hyper-1"></a><a class="docs-heading-anchor-permalink" href="#imputation_hyper" title="Permalink"></a></h2><p>The <a href="#MPSTime.tune"><code>tune</code></a> and <a href="#MPSTime.evaluate"><code>evaluate</code></a> methods may both be used to minimise imputation loss, with a small amount of extra setup. Setting <code>objective=ImputationLoss()</code> will optimise an MPS for imputation performance by minimising the mean absolute error (MAE) between predicted and unseen data. To accomplish this, MPSTime takes data from the test (or validation) set, corrupts a portion of it, and then predicts what the corrupted data should be based on the uncorrupted values. There are two methods for how the test (or validation) data can be corrupted.</p><ol><li>Setting the <code>windows</code> (or <code>eval_windows</code>) keyword in <a href="#MPSTime.tune"><code>tune</code></a> (or <a href="#MPSTime.evaluate"><code>evaluate</code></a>, respectively) to a vector of &#39;windows&#39;. Each window is a vector of missing/corrupted data indices, for example</li></ol><pre><code class="language-julia hljs">windows = [[1,3,7],[4,5,6]]</code></pre><p>will take each timeseries in the test set, and create two &#39;corrupted&#39; test series, missing the 1st, 3rd, and 7th; and the 4th, 5th, and 6th values respectively.</p><ol><li>Setting the <code>pms</code> (or <code>eval_pms</code>) keyword in <a href="#MPSTime.tune"><code>tune</code></a> (or <a href="#MPSTime.evaluate"><code>evaluate</code></a>, respectively) to a vector of &#39;percentage missings&#39;. This generates corrupted time series by removing randomly selected contiguous blocks that make up a specified percentage of the data. For example, </li></ol><pre><code class="language-iulia hljs">pms = [0.05, 0.05, 0.6, 0.95]</code></pre><p>will generate four corrupted time series from each element of the test (or validation) set. Two will have missing blocks that make up 5% of their length, and one each will have blocks with 60% and 95% missing. The imputation tuning loss is the average MAE of imputing every window on every element of the test (or validation) set.</p><p><strong>Example: Calling tune with percentages missing</strong> Tune the MPS on an imputation problem with randomly selected 5%, 15%, 25%, ... , 95% long missing blocks.</p><pre><code class="language-julia hljs">params = (
+    d=(8,12), 
+    chi_max=(30,50)
+)
+
+best_params, cache = tune(
+    X_train, 
+    y_train, 
+    nfolds,
+    params,
+    MPSRandomSearch(); 
+    objective=ImputationLoss(), 
+    pms=collect(0.05:0.1:0.95),
+    maxiters=20,
+    logspace_eta=true
+)</code></pre><pre><code class="nohighlight hljs">iter 1, cvfold 1: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 2: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 3: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 4: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 5: training MPS with (chi_max = 47, d = 12)...
+iter 1, cvfold 1: finished. MPS (chi_max = 47, d = 12) finished in 515.58s (train=402.83s, loss=112.75s)
+iter 1, cvfold 2: finished. MPS (chi_max = 47, d = 12) finished in 511.0s (train=399.52s, loss=111.48s)
+iter 1, cvfold 3: finished. MPS (chi_max = 47, d = 12) finished in 516.33s (train=406.92s, loss=109.41s)
+iter 1, cvfold 4: finished. MPS (chi_max = 47, d = 12) finished in 519.06s (train=405.13s, loss=113.93s)
+iter 1, cvfold 5: finished. MPS (chi_max = 47, d = 12) finished in 522.12s (train=406.87s, loss=115.25s)
+iter 1, t=534.28: Mean CV Loss: 0.44716868140737487
+iter 2, cvfold 1: training MPS with (chi_max = 50, d = 11)...
+
+[...]
+
+iter 20, cvfold 4: finished. MPS (chi_max = 31, d = 8) finished in 112.81s (train=66.33s, loss=46.48s)
+iter 20, cvfold 5: finished. MPS (chi_max = 31, d = 8) finished in 113.9s (train=66.32s, loss=47.58s)
+iter 20, t=5223.05: Mean CV Loss: 0.4755302875557089</code></pre><pre><code class="language-julia-repl hljs">julia&gt; best_params
+(chi_max = 48,
+ d = 9,)
+
+julia&gt; cache[values(best_params)]
+0.39402101779354365</code></pre><p><strong>Example: Using evaluate with the Missing Completely At Random tool</strong> Tune the MPS on an imputation problem by completely randomly corrupting 5%, 15%, 25%, ... , or 95% of each test (or validation) time series. See the <a href="../tools/#MPSTime.mcar"><code>Missing Completely at Random</code></a> tool.</p><pre><code class="language-julia hljs">inds = collect(1:size(Xs,2))
+rng = Xoshiro(42)
+pms = 0.05:0.1:0.95
+mcar_windows = [mcar(inds, pm; rng=rng)[2] for pm in pms]
+results = evaluate(
+    Xs,
+    ys,
+    nresamples,
+    params,
+    MPSRandomSearch(); 
+    objective=ImputationLoss(),
+    eval_windows=mcar_windows,
+    tuning_maxiters=20,
+)</code></pre><pre><code class="nohighlight hljs">Fold 1: iter 1, cvfold 1: training MPS with (chi_max = 50, d = 12)...
+     
+[...]
+
+Fold 3: iter 20, cvfold 5: finished. MPS (chi_max = 35, d = 8) finished in 635.05s (train=255.05s, loss=380.0s)
+Fold 3: iter 20, t=20328.2: Mean CV Loss: 0.24440015696620948
+fold 3: t=42210.43: training MPS with (chi_max = 48, d = 12)...  done</code></pre><pre><code class="language-julia-repl hljs">julia&gt; losses = getindex.(results, &quot;opts&quot;);
+
+julia&gt; mean.(losses)
+3-element Vector{Float64}:
+ 0.21739511880650658
+ 0.21129840885487566
+ 0.21441462843171047
+
+julia&gt; getindex.(results, &quot;opts&quot;) # print out the MPSOptions objects
+3-element Vector{MPSOptions}:
+ MPSOptions(-5, 10, 47, 0.01, 11, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
+(false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, &quot;divide_and_conquer&quot;)
+ MPSOptions(-5, 10, 50, 0.01, 12, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
+(false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, &quot;divide_and_conquer&quot;)
+ MPSOptions(-5, 10, 48, 0.01, 12, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64, :KLD, :TSGO, false,
+(false, true), false, false, false, true, false, false, 1234, 4, -1, (0.0, 1.0), false, &quot;divide_and_conquer&quot;)
+
+julia&gt; results[1]
+Dict{String, Any} with 13 entries:
+  &quot;time&quot;           =&gt; 6152.08
+  &quot;objective&quot;      =&gt; &quot;ImputationLoss()&quot;
+  &quot;train_inds&quot;     =&gt; [340, 445, 262, 132, 89, 379, 225, 59, 224, 57  …  495, 484, 355, 322, 284, 363, …
+  &quot;optimiser&quot;      =&gt; &quot;MPSRandomSearch(:LatinHypercube)&quot;
+  &quot;fold&quot;           =&gt; 1
+  &quot;test_inds&quot;      =&gt; [133, 477, 112, 148, 13, 453, 342, 83, 252, 455  …  151, 483, 74, 380, 61, 297, 1…
+  &quot;tuning_windows&quot; =&gt; [[35, 97], [10, 36, 38, 49, 60, 62, 65, 72, 81, 82, 88, 92, 93, 97], [9, 16, 24, …
+  &quot;eval_windows&quot;   =&gt; [[35, 97], [10, 36, 38, 49, 60, 62, 65, 72, 81, 82, 88, 92, 93, 97], [9, 16, 24, …
+  &quot;cache&quot;          =&gt; Dict((49, 10)=&gt;0.217511, (41, 10)=&gt;0.233205, (45, 8)=&gt;0.231089, (31, 8)=&gt;0.259456…
+  &quot;tuning_pms&quot;     =&gt; nothing
+  &quot;loss&quot;           =&gt; [0.192093, 0.193801, 0.183081, 0.189859, 0.194329, 0.19409, 0.211727, 0.235688, 0…
+  &quot;eval_pms&quot;       =&gt; nothing
+  &quot;opts&quot;           =&gt; MPSOptions(-5, 10, 47, 0.01, 11, :Legendre_No_Norm, false, 2, 1.0e-10, 1, Float64…
+
+</code></pre><h2 id="Minimising-a-custom-loss-function"><a class="docs-heading-anchor" href="#Minimising-a-custom-loss-function">Minimising a custom loss function</a><a id="Minimising-a-custom-loss-function-1"></a><a class="docs-heading-anchor-permalink" href="#Minimising-a-custom-loss-function" title="Permalink"></a></h2><p>Custom objectives can be used by implementing a custom loss value type (<code>CustomLoss &lt;: MPSTime.TuningLoss</code>) and extending the definition of <a href="#MPSTime.eval_loss"><code>MPSTime.eval_loss</code></a> with the signature</p><pre><code class="language-julia hljs">eval_loss(
+    CustomLoss(), 
+    mps::TrainedMPS, 
+    X_validation::AbstractMatrix, 
+    y_validation::AbstractVector, 
+    windows; 
+    p_fold=nothing, 
+    distribute::Bool=false
+) -&gt; Union{Float64, Vector{Float64}}</code></pre><p>As a simple example, we could implement a custom misclassification rate with the following:</p><pre><code class="language-julia-repl hljs">julia&gt; import MPSTime: TuningLoss, eval_loss;
+julia&gt; struct CustomMisclassificationRate &lt;: TuningLoss end;
+
+julia&gt; function eval_loss(
+        ::CustomMisclassificationRate, 
+        mps::TrainedMPS, 
+        X_val::AbstractMatrix, 
+        y_val::AbstractVector, 
+        windows; 
+        p_fold=nothing,
+        distribute::Bool=false
+    )
+    return [1. - mean(classify(mps, X_val) .== y_val)] # misclassification rate, vector for type stability
+end;
+
+julia&gt; results = evaluate(
+    Xs,
+    ys,
+    nfolds,
+    params,
+    MPSRandomSearch(); 
+    objective=CustomMisclassificationRate(),
+    tuning_maxiters=20
+)
+[...]</code></pre><p>Since imputation type losses have multiple windows, the general output type of the <code>eval_loss</code> function is a vector. Because of this, the <code>tune()</code> function always optimises <code>mean(eval_loss(...))</code></p><p>The <code>p_fold</code> variable is a tuple containing information used for logging. The <code>distribute</code> flag is enabled by <code>evaluate</code> when <code>distribute_final_eval</code> is true. As an example of implementing both of these, here&#39;s MPSTime&#39;s implementation of <code>eval_loss(::ImputationLoss, ...)</code>:</p><details class="admonition is-details" id="eval_loss-source-code-1c3fd90476cbddfa"><summary class="admonition-header">`eval_loss` source code<a class="admonition-anchor" href="#eval_loss-source-code-1c3fd90476cbddfa" title="Permalink"></a></summary><div class="admonition-body"><pre><code class="language-julia hljs">function eval_loss(
+    ::ImputationLoss, 
+    mps::TrainedMPS, 
+    X_val::AbstractMatrix, 
+    y_val::AbstractVector, 
+    windows::Union{Nothing, AbstractVector}=nothing;
+    p_fold::Union{Nothing, Tuple}=nothing,
+    distribute::Bool=false,
+    method::Symbol=:median
+)
+    
+    if ~isnothing(p_fold)
+        verbosity, pre_string, tstart, fold, nfolds = p_fold
+        logging = verbosity &gt;= 2
+        foldstr = isnothing(fold) ? &quot;&quot; : &quot;cvfold $fold:&quot;
+    else
+        logging = false
+    end
+    imp = init_imputation_problem(mps, X_val, y_val, verbosity=-5);
+    numval = size(X_val, 1)
+
+    # conversion from instance index to something MPS_impute understands. 
+    cmap = countmap(y_val) # from StatsBase
+    classes = vcat([fill(k,v) for (k,v) in pairs(cmap)]...)
+    class_ind = vcat([1:v for v in values(cmap)]...)
+
+    if distribute
+        loss_by_window = @sync @distributed (+) for inst in 1:numval
+            logging &amp;&amp; print(pre_string, &quot;$foldstr Evaluating instance $inst/$numval...&quot;)
+            t = time()
+            ws = Vector{Float64}(undef, length(windows))
+            for (iw, impute_sites) in enumerate(windows)
+                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, method; NN_baseline=false, plot_fits=false)[4]
+                ws[iw] = stats[1][:MAE]
+            end
+            logging &amp;&amp; println(&quot;done ($(MPSTime.rtime(t))s)&quot;) # rtime just nicely prints time elapsed since $t in seconds
+            ws
+        end
+        loss_by_window /= numval
+    else
+        instance_scores = Matrix{Float64}(undef, numval, length(windows)) # score for each instance across all % missing
+        for inst in 1:numval
+            logging &amp;&amp; print(pre_string, &quot;$foldstr Evaluating instance $inst/$numval...&quot;)
+            t = time()
+            for (iw, impute_sites) in enumerate(windows)
+                stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, method; NN_baseline=false, plot_fits=false)[4]
+                instance_scores[inst, iw] = stats[1][:MAE]
+            end
+            logging &amp;&amp; println(&quot;done ($(MPSTime.rtime(t))s)&quot;) # rtime just nicely prints time elapsed since $t in seconds
+        end
+        loss_by_window = mean(instance_scores; dims=1)[:]
+    end
+    
+
+    return loss_by_window
+end
+</code></pre></div></details><h2 id="hyper_algs"><a class="docs-heading-anchor" href="#hyper_algs">Choice of tuning algorithm</a><a id="hyper_algs-1"></a><a class="docs-heading-anchor-permalink" href="#hyper_algs" title="Permalink"></a></h2><p>The hyperparameter tuning algorithm used by <a href="#MPSTime.tune"><code>tune</code></a> (or <a href="#MPSTime.evaluate"><code>evaluate</code></a>) can be specified with the <code>optimiser</code> argument. This supports the default builtin <a href="#MPSTime.MPSRandomSearch"><code>MPSRandomSearch</code></a> methods, as well as (in theory) any solver that is supported by the <a href="https://docs.sciml.ai/Optimization/stable"><code>Optimization.jl interface</code></a>. Note that many of these solvers struggle with discrete search spaces, such as tuning the integer valued <code>chi_max</code> and <code>d</code>. Some of them require initial conditions (set <code>provide_x0=true</code>), and some require no initial conditions (set <code>provide_x0=false</code>), so your mileage may vary. By default, <code>tune()</code> handles optimisers attempting to evaluate discrete hyperparameters at a non-integer value by rounding and using its own cache to avoid rounding based cache misses. This is effective, but has the downside of causing <code>maxiters</code> to be inaccurate (as repeated hyperparameter evaluations caused by rounding result in a &#39;skipped&#39; iteration).</p><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="MPSTime.MPSRandomSearch" href="#MPSTime.MPSRandomSearch"><code>MPSTime.MPSRandomSearch</code></a> — <span class="docstring-category">Type</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-Julia hljs">    MPSRandomSearch(sampling::Symbol=:LatinHypercube)</code></pre><p>Value type used to specify a random search algorithm for <a href="#MPSTime.tune"><code>hyperparameter tuning</code></a> an MPS. </p><p><code>Sampling</code> Specifies the method used to determine the search space. The supported sampling methods are </p><ul><li><code>:LatinHypercube</code>: An implementation of <a href="https://www.juliapackages.com/p/latinhypercubesampling"><code>LatinHypercubeSampling.jl</code></a>&#39;s random (pseudo-) Latin Hypercubesearch space generator. Supports both discrete and continuous hyperparameters.</li><li><code>:UniformRandom</code>: Generate a search space by randomly sampling from the interval [lower bound, upper bound] for each hyperparameter. Supports both discrete andcontinuous hyperparameters.</li><li><code>Exhaustive</code>: Perform an exhaustive gridsearch of all hyperparameters within the lower and upper bounds. Only supports discrete hyperparameters. Not actually a random search.  </li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/5e18116353751a684416e1320fe6680957a9a73f/src/Training/hyperparameters/hyperopt_utils.jl#L8-L18">source</a></section></article><h2 id="distributed_computing"><a class="docs-heading-anchor" href="#distributed_computing">Distributed computing</a><a id="distributed_computing-1"></a><a class="docs-heading-anchor-permalink" href="#distributed_computing" title="Permalink"></a></h2><p>Both tune <a href="#MPSTime.tune"><code>tune</code></a> and <a href="#MPSTime.evaluate"><code>evaluate</code></a> support several different parallel processing paradigms for different use cases, compatible with processors added via Distributed.jl&#39;s <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.addprocs"><code>addprocs</code></a> function.  For example, to distribute each fold of the classification style evaluation above, run:</p><pre><code class="language-julia-repl hljs">using Distributed
+nfolds = 30;
+
+e = copy(ENV);
+e[&quot;OMP_NUM_THREADS&quot;] = &quot;1&quot;; # attempt to prevent threading
+e[&quot;JULIA_NUM_THREADS&quot;] = &quot;1&quot;; # attempt to prevent threading
+
+addprocs(nfolds; env=e);
+@everywhere using MPSTime
+
+Xs = vcat(X_train, X_test);
+ys = vcat(y_train, y_test);
+
+results = evaluate(
+    Xs,
+    ys,
+    nfolds,
+    params,
+    MPSRandomSearch(); 
+    objective=MisclassificationRate(),
+    tuning_maxiters=20,
+    distribute_folds=true
+)
+
+[...]
+</code></pre><p>See the respective docstrings for more information.</p><h2 id="Docstrings"><a class="docs-heading-anchor" href="#Docstrings">Docstrings</a><a id="Docstrings-1"></a><a class="docs-heading-anchor-permalink" href="#Docstrings" title="Permalink"></a></h2><h3 id="Hyperparameter-tuning"><a class="docs-heading-anchor" href="#Hyperparameter-tuning">Hyperparameter tuning</a><a id="Hyperparameter-tuning-1"></a><a class="docs-heading-anchor-permalink" href="#Hyperparameter-tuning" title="Permalink"></a></h3><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="MPSTime.tune" href="#MPSTime.tune"><code>MPSTime.tune</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">function tune(
+    Xs::AbstractMatrix, 
+    [ys::AbstractVector], 
+    nfolds::Integer,
+    parameters::NamedTuple,
+    optimiser=MPSRandomSearch(:LatinHypercubeSampling);
+    &lt;Keyword Arguments&gt;) -&gt; best_parameters::NamedTuple, cache::Dictionary</code></pre><p>Perform <code>nfolds</code>-fold hyperparameter tuning of an MPS on the timeseries data <code>Xs</code>, optionally specifying the data classes <code>ys</code>. Returns a NamedTuple containing the optimal hyperparameters, and a cache Dictionary that saves the loss of every tested hyperparameter combination.</p><p><code>parameters</code> specifies the hyperparameters to tune and (optionally) a search space. Currently, every numeric field of <a href="../classification/#MPSTime.MPSOptions"><code>MPSOptions</code></a> is supported. <code>parameters</code>  are specified as named tuples, with the key being the name of the hyperparameter (See Example below). There are a couple of options for specifying the bounds:</p><ul><li>The preferred option is <code>Tuple</code> of lower/upper bounds: &quot;<code>params=(eta=(upper_bound,lower_bound), ...)</code>&quot;, which allows the optimiser to choose any value in the interval [upper<em>bound, lower</em>bound]. You can also pass an empty tuple: &quot;<code>params=(eta=(), ...)</code>&quot; which allows the parameter to take any non-negative value. </li><li>As a <code>Vector</code> of possible values, e.g. <code>params = (d=[1,3,6,7,8], ...)</code>. For convenience, you can also use the <code>Tuple</code> syntax &quot;<code>params=(d=(start,step,stop), ...)</code>&quot;, which is equivalent to &quot;<code>params = (d=start:step:stop, ...)</code>&quot;</li></ul><p>Note that if you use the first method, the upper and lower bounds are passed to the hyperparameter tuning algorithm, but may not be strictly enforced depending on your choice of algorithm.  Alternatively, use the <code>enforce_bounds=false</code> keyword argument to disable bounds checking completely (for compatible optimisers).</p><p><strong>Example:</strong></p><p>To tune a classification problem by searching the hyperparameter space η ∈ [0.001, 0.1], d ∈ {5,6,7}, and χmax ∈ {20,21,...,25}:</p><pre><code class="language-julia-repl hljs">julia&gt; params = (
+    eta=(1e-3, 1e-1), 
+    d=(5,7), 
+    chi_max=(20,25)
+); # configure the search space
+
+julia&gt; nfolds = 5;
+
+julia&gt; best_params, cache = tune(
+    X_train, # Training data as a matrix, rows are time series
+    y_train, # Vector of time series class labels
+    nfolds, # Number of cross validation folds
+    params,
+    MPSRandomSearch(); # Tuning algorithm
+    objective=MisclassificationRate(), # Type of loss to use
+    maxiters=20, # Maximum number of tuning iterations
+    logspace_eta=true # When true, the eta search space [0.001, 0.1] is sampled logarithmically
+)
+[...]
+
+julia&gt; best_opts = MPSOptions(best_params); # convert to an MPSOptions object
+[...]</code></pre><p>Other problem classes are available, see the MPSTime documentation.</p><p><strong>Hyperparameter Tuning Methods</strong></p><p>The hyperparameter tuning algorithm can be specified with the <code>optimiser</code> argument. This supports the default builtin <a href="#MPSTime.MPSRandomSearch"><code>MPSRandomSearch</code></a> methods, as well as (in theory) any solver that is supported by the <a href="https://docs.sciml.ai/Optimization/stable"><code>Optimization.jl interface</code></a>. Note that many of these solvers struggle with discrete search spaces, such as tuning the integer valued <code>chi_max</code> and <code>d</code>, or tuning an <code>eta</code> specified with a vector. Some of them require initial conditions (set <code>provide_x0=true</code>),  and some require no initial conditions (set <code>provide_x0=false</code>), so your mileage may vary. By default, <code>tune()</code> handles optimisers attempting to evaluate  discrete hyperparameters at a non-integer value by rounding, and using its own cache to avoid rounding based cache misses.</p><p>There are a lot of keyword arguments... Extended help is avaliable with <code>??tune</code></p><p>See also: <a href="#MPSTime.evaluate"><code>evaluate</code></a></p><p><strong>Extended Help</strong></p><p><strong>Keyword Arguments</strong></p><p><strong>Hyperparameter Options</strong></p><ul><li><code>opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1, sigmoid_transform=objective isa ClassificationLoss)</code>: Default hyperparamaters to pass to <code>fitMPS</code>. Hyperparameter candidates are generated by modifying <code>opts0</code> with the values in the search space specified by <code>parameters</code>.</li><li><code>enforce_bounds::Bool=true</code>: Whether to pass the constraints given in params to the optimisation algorithm.</li><li><code>logspace_eta::Bool=false</code>: Whether to treat the <code>eta</code> parameterspace as logarithmic. E.g. setting <code>parameters=(eta=(10^-3,10^-1) )</code> and <code>logspace_eta=true</code> will sample each <code>eta_candidate</code> from the log10 search space [-3.,-1.], and then pass <code>eta = 10^(eta_candidate)</code> to <code>MPSOptions</code>. </li><li><code>input_supertype::Type=Float64</code>: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. Typically, <code>Float64</code> is sufficient, but it can be set to <code>Int</code> for purely discrete optimisation problems etc. This is necessary for mixed integer / Float  hyperparameter tuning because certain solvers in <code>Optimization.jl</code> require variables in the search space to all be the same type.</li></ul><p><strong>Loss and Windowing</strong></p><ul><li><code>objective::TuningLoss=ImputationLoss()</code>: The objective of the hyperparameter optimisation. This comes in two categories:</li></ul><p><strong>Imputation Loss</strong></p><p><code>obvjective=ImputationLoss()</code> Uses the mean of the mean absolute error to measure the performance of an MPS on imputing unseen data. First, it generates &#39;corrupted&#39; time series data by applying missing data windows to the validation set, using one of the following options:</p><ul><li><code>pms::Union{Nothing, AbstractVector}=nothing</code>: Stands for &#39;percentage missings&#39;. Will remove a randomly selected contiguous blocks from each time series in the validation set, according to the percentages missing listed in the <code>pms</code> vector. For example, <code>pms=[0.05, 0.05, 0.6, 0.95]</code> will generate four windows, two with 5% missing, and one each with 60% and 95% missing</li><li><code>windows::Union{Nothing, AbstractVector, Dict}=nothing</code>: Manually input missing windows. Expects a vector of missing windows, or a dictionary where <code>values(windows)</code> is a vector of missing windows.</li></ul><p>The tuning loss is the average of computing the mean absolute error of imputing every window on every element of the validation set.</p><p><strong>Classification Loss</strong></p><p>Classification type problems can be hyperparameter tuned to minimise either <code>MisclassificationRate()</code> (1 - classification accuracy), or <code>BalancedMisclassificationRate()</code> (1 - balanced accuracy).</p><p><strong>Custom Loss Functions</strong></p><p>Custom losses can be used by implementing a custom loss value type (<code>CustomLoss &lt;: TuningLoss</code>) and extending the definition of <a href="#MPSTime.eval_loss"><code>MPSTime.eval_loss</code></a> with the signature</p><pre><code class="language-julia hljs">eval_loss(
+    CustomLoss(), 
+    mps::TrainedMPS, 
+    X_validation::AbstractMatrix, 
+    y_validation::AbstractVector, 
+    windows; 
+    p_fold=nothing, 
+    distribute::Bool=false
+) -&gt; Union{Float64, Vector{Float64}</code></pre><p>if <code>eval_loss</code> returns a vector, then <code>tune()</code> will optimise <code>mean(eval_loss(...))</code>. For concrete examples, see the documentation</p><p><strong>Tuning algorithm</strong></p><ul><li><code>abstol::Float64=1e-3</code>: Passed directly to <code>Optimization.jl</code>: Absolute tolerance in changes to the objective (loss) function</li><li><code>maxiters::Integer=250</code>: Maximum number of iterations allowed when solving</li><li><code>provide_x0::Bool=true</code>: Whether to provide initial conditions to the solve, ignored by <a href="#MPSTime.MPSRandomSearch"><code>MPSRandomSearch</code></a>. The initial condition will be <code>opts0</code>, unless it contains a hyperparameter outside the range specified by <code>parameters</code>, in which case the lower bound of that hyperparameter will be used.</li><li><code>rng::Union{Integer, AbstractRNG}=1</code>: An Integer or RNG object used to seed any randomness in imputation window or search space generation.</li><li><code>kwargs...</code>: Any further keyword arguments to passed through to <code>Optimization.jl</code> through the <a href="https://docs.sciml.ai/Optimization/stable/API/solve/#CommonSolve.solve-Tuple%7BOptimizationProblem%2C%20Any%7D"><code>Optimization.solve</code></a> function</li></ul><p><strong>Folds and Cross validation</strong></p><ul><li><code>foldmethod::Union{Function, AbstractVector}=make_stratified_cvfolds</code>: The method used to generate the train/validation folds from <code>Xs</code>. Can either be an <code>nfolds</code>-long Vector of <code>[train_indices::Vector, validation_indices::Vector]</code> pairs, or a function that produces them, with the signature <code>foldmethod(Xs,ys, nfolds; rng::AbstractRNG)</code> To clarify, the <code>tune</code> function determines the train/validation splits for the ith fold in the following way:</li></ul><pre><code class="language-julia-repl hljs">julia&gt; folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
+
+julia&gt; train_inds, validation_inds = folds[i];
+
+julia&gt; X_train, y_train = Xs[train_inds, :], ys[train_inds];
+
+julia&gt; X_validation, y_validation = Xs[validation_inds, :], ys[validation_inds];</code></pre><p><strong>Logging</strong></p><ul><li><code>verbosity::Integer=1</code>: Controls how explicit the logging is. 0 for none, 5 for maximimum. This is separate to the verbosity in MPSOptions.</li><li><code>pre_string::String=&quot;&quot;</code>: Prints this string on the same line before logging messages are printed. Useful for logging when calling <code>tune()</code> multiple times in parallel.</li></ul><p><strong>Distributed Computing</strong></p><p>Parallel processing is available using processors added via Distributed.jl&#39;s <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.addprocs"><code>addprocs</code></a> function.</p><ul><li><code>distribute_iters::Bool=false</code>: When using an <code>MPSRandomSearch</code>, distribute the search grid across all available processors. For thread safety, using <code>distribute_iters</code> disables caching.</li><li><code>distribute_folds::Bool=false</code>: Distribute each fold to its own processor. Scales up to at most <code>nfolds</code> processors. Not very compatible with <code>distribute_iters</code>.</li><li><code>workers::AbstractVector{Int}=distribute_folds ? workers() : Int[]</code>: Workers that may be used to distribute folds, does not affect <code>distribute_iters</code>. This can be used to run multiple instances of <code>tune()</code> on different sets of workers.</li><li><code>disable_nondistributed_threading::Bool=false</code>: Attempts to disable threading using <code>BLAS.set_num_threads(1)</code> and <code>Strided.disable_threads()</code> (May not work if using the MKL.jl linear algebra backend).</li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/5e18116353751a684416e1320fe6680957a9a73f/src/Training/hyperparameters/tuning.jl#L209-L337">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="MPSTime.evaluate" href="#MPSTime.evaluate"><code>MPSTime.evaluate</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-Julia hljs">function evaluate(
+    Xs::AbstractMatrix, 
+    [ys::AbstractVector], 
+    nfolds::Integer,
+    tuning_parameters::NamedTuple,
+    tuning_optimiser=MPSRandomSearch();
+    &lt;Keyword Arguments&gt;) -&gt; results::Vector{Dictionary}</code></pre><p>Evaluate the performance of MPSTime by <a href="#MPSTime.tune"><code>hyperparameter tuning</code></a> on <code>nfolds</code> resampled folds of the timeseries dataset <code>Xs</code> with classes <code>ys</code>.</p><p><code>tuning_parameters</code> controls the hyperparamters to tune over, and <code>tuning_optimiser</code> specifies the hyperparameter tuning algorithm. These are passed directly to <a href="#MPSTime.tune"><code>tune</code></a>, refer to its documentation for details. </p><p><strong>Example</strong></p><p>To evaluate a classification problem by searching the hyperparameter space η ∈ [0.001, 0.1], d ∈ {5,6,7}, and χmax ∈ {20,21,...,25},</p><pre><code class="language-julia-repl hljs">julia&gt; params = (
+    eta=(1e-3, 1e-1), 
+    d=(5,7), 
+    chi_max=(20,25)
+);
+julia&gt; nfolds = 30;
+
+julia&gt; results = evaluate(
+    X_train, # training data as a matrix, rows are time series
+    y_train, # Vector of time series class labels
+    nfolds, # number of resample folds
+    params, # search space
+    MPSRandomSearch(); # Hyperparameter search method, see Extended help
+    objective=MisclassificationRate(), # Type of lsso to use
+    maxiters=20, # Maximum number of tuning iterations
+    logspace_eta=true # the eta search space [0.001, 0.1] is sampled logarithmically
+)
+[...]</code></pre><p><strong>Return value</strong></p><p>A length <code>nfolds</code> vector of dictionaries that contain detailed informatation about each fold. Each dictionary has the following keys:</p><ul><li><code>&quot;fold&quot;=&gt;Integer</code>: The fold index.</li><li><code>&quot;objective&quot;=&gt;String</code>: The objective (loss function) this fold was trained on.</li><li><code>&quot;train_inds&quot;=&gt;Vector</code>: The indices (rows of Xs) this fold was tuned/trained on.</li><li><code>&quot;test_inds&quot;=&gt;Vector</code>: The indices (rows of Xs) this fold was tested on.</li><li><code>&quot;optimiser&quot;=&gt;String</code>: Name of the optimiser used to hyperparameter tune each fold.</li><li><code>&quot;tuning_windows&quot;=&gt;Vector</code>: The windows used to hyperparameter tune this fold.</li><li><code>&quot;tuning_pms&quot;=&gt;Vector</code>: The &#39;Percentages Missing&#39; used to hyperparameter tune this fold (possibly used to generate tuning_windows).</li><li><code>&quot;eval_windows&quot;=&gt;Vector</code>: The windows used to evaluate the test loss.</li><li><code>&quot;eval_pms&quot;=&gt;eval_pms</code>: The &#39;Percentages Missing&#39; used to evaluate the test loss (possibly used to generate <code>eval_windows</code>).</li><li><code>&quot;time&quot;=&gt;Vector</code>: Total time to tune and test this fold in seconds.</li><li><code>&quot;opts&quot;=&gt;MPSOptions</code>: Optimal options for this fold as determined by tune(). Used to compute the test loss.</li><li><code>&quot;cache&quot;=&gt;Dict</code>: Cache of the validation losses of every set of hyperparameters evaluated on this fold. Disabled if <code>distribute_iters</code> is true.</li><li><code>&quot;loss&quot;=&gt;Union{Vector{Float64}, Float64}</code>. The test loss of this fold. If <code>objective</code> is an <code>ImputationLoss()</code>, this is a vector with each entry corresponding to a window in <code>results[fold][&quot;eval_windows&quot;]</code>.</li></ul><p>There are a lot of keyword arguments... Extended help is avaliable with <code>??evaluate</code></p><p><strong>Extended Help</strong></p><p><strong>Keyword Arguments</strong></p><p><strong>Loss and Windowing</strong></p><ul><li><p><code>objective::TuningLoss=ImputationLoss()</code>: The loss used to evaluate and tune the MPS. If its an ImputationLoss, then either <code>pms</code> or <code>windows</code> must be specified for each of evaluation and tuning. See the <a href="#MPSTime.tune"><code>tune</code></a> extended documentation for more details.</p></li><li><p><code>eval_pms::Union{Nothing, AbstractVector}=nothing</code>: &#39;Percentage MissingS&#39; used to evaluate the test loss.</p></li><li><p><code>eval_windows::Union{Nothing, AbstractVector, Dict}=nothing</code>: Windows used to evaluate the test loss.</p></li><li><p><code>tuning_pms::Union{Nothing, AbstractVector}=eval_pms</code>: &#39;Percentage MissingS&#39; passed to tune, and used to compute validation loss.</p></li><li><p><code>tuning_windows::Union{Nothing, AbstractVector, Dict}=eval_windows</code>: Windows passed to tune, and used to compute validation loss.</p></li><li><p><code>rng::Union{Integer, AbstractRNG}=1</code>: An integer or RNG object used to seed any randomness in imputation window or search space generation. <code>Random.seed!(fold)</code>` is called prior to tuning each fold, so that any optimization algorithms that are random but don&#39;t take rng objects should still be deterministic.</p></li><li><p><code>tuning_rng::AbstractVector{&lt;:Union{Integer, AbstractRNG}=collect(1:nfolds)</code>: Passed through to <code>tune</code>. An integer or RNG object used to seed any randomness in tuning imputation window generation or hyperparameter searching.</p></li><li><p><code>opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1, sigmoid_transform=(objective isa ClassificationLoss))</code>: Options that are modified by the best options returned by tune. Used to train the MPS which evalutates the test loss. </p></li><li><p><code>tuning_opts0::AbstractMPSOptions=opts0</code>: Initial guess passed as <code>opts0</code> to <a href="#MPSTime.tune"><code>tune</code></a> that sets the values of the non-tuned hyperparameters. Should generally always be the same as <code>opts0</code>, but can be specified separately in case you wish to make the final mps train with more verbosity etc. </p></li></ul><p><strong>Resampling and Cross Validation</strong></p><ul><li><code>foldmethod::Union{Function, Vector}=make_stratified_cvfolds</code>: Can either be an <code>nfolds</code>-long Vector of <code>[train_indices::Vector, test_indices::Vector]</code> pairs, or a function that produces them, with the signature <code>foldmethod(Xs,ys, nfolds; rng::AbstractRNG)</code> To clarify, the <code>tune</code> function determines the train/test splits for the ith fold in the following way:</li></ul><pre><code class="language-julia-repl hljs">julia&gt; folds::Vector = foldmethod isa Function ? foldmethod(Xs,ys, nfolds; rng=rng) : foldmethod;
+
+julia&gt; train_inds, test_inds = folds[i];
+
+julia&gt; X_train, y_train = Xs[train_inds, :], ys[train_inds];
+
+julia&gt; X_test, y_test = Xs[test_inds, :], ys[test_inds];</code></pre><p><code>foldmethod</code> defaults to <code>nfold</code>-fold cross validation.</p><ul><li><code>tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds</code>: Same as above, although it is passed to <code>tune</code> and used to split the training set into hyperparameter train/validation sets. The fold number specified by the <code>n_cvfolds</code> keyword.</li><li><code>fold_inds::Vector{&lt;:Integer}=collect(1:nfolds)</code>: A vector of the fold indices to evaluate. This can be used to split large training runs into batches, or to resume a halted benchmark.</li></ul><p><strong>Distributed Computing</strong></p><p>Several parallel processing paradigms are availble for different use cases, implented using processors added via Distributed.jl&#39;s <a href="https://docs.julialang.org/en/v1/stdlib/Distributed/#Distributed.addprocs"><code>addprocs</code>`</a> function.</p><ul><li><code>distribute_iters::Bool=false</code>: When using an <code>MPSRandomSearch</code>, for each fold, distribute the search grid across all available processors. For thread safety, using <code>distributed_iters</code> disables caching.</li><li><code>distribute_folds::Bool=false</code>: Allocate one processor to each fold.</li><li><code>distribute_cvfolds::Bool=false</code>: Equivalent to passing <code>distribute_folds</code> to <code>tune</code>. Allocates a processor to each hyperparameter train/val split.</li><li><code>distribute_final_eval::Bool=false</code>: Allocate a processor to each test timeseries when computing the test loss. Useful when the test set is very large. The only option compatible with the others. </li></ul><p><strong>Saving and Resuming</strong></p><p>If <code>write</code> is enabled, <code>evaluate</code> will automatically resume if it finds a partially complete run. </p><div class="admonition is-danger" id="Only-the-filename-is-checked-when-comparing-save-data,-so-it-is-possible-to-accidentally-merge-incompatible-evaluations-or-overwrite-complete-ones-if-they-are-named-the-same-thing!-a29f95730651159f"><header class="admonition-header">Only the filename is checked when comparing save data, so it is possible to accidentally merge incompatible evaluations or overwrite complete ones if they are named the same thing!<a class="admonition-anchor" href="#Only-the-filename-is-checked-when-comparing-save-data,-so-it-is-possible-to-accidentally-merge-incompatible-evaluations-or-overwrite-complete-ones-if-they-are-named-the-same-thing!-a29f95730651159f" title="Permalink"></a></header><div class="admonition-body"></div></div><ul><li><code>write::Bool=false</code>: Whether to write output to files. If true, it will save temporary files, saving each completed fold inside <code>&quot;$writedir/$(simname)_temp/&quot;</code>, and the final result to <code>&quot;$writedir/$(simname).jld2&quot;</code>.</li><li><code>writedir::String=&quot;evals&quot;</code>: The directory to save data to.</li><li><code>simname::String=&quot;$(objective)_$(tuning_optimiser)_f=$(nfolds)_cv$(n_cvfolds)_iters=$(tuning_maxiters)&quot;</code>: The simulation name. Used to determine save location.</li><li><code>delete_tmps::Bool=length(fold_inds)==nfolds</code>: Whether to delete the temp directory at the end.</li></ul><p><strong>Logging</strong></p><ul><li><code>verbosity::Integer=1</code>: Controls how explicit the logging is. 0 for none, 5 for maximimum. This is separate to the verbosity in MPSOptions.</li></ul><p><strong>Hyperparameter Tuning Options</strong></p><p>These options are passed directly to their corresponding keywords in <a href="#MPSTime.tune"><code>tune</code></a></p><ul><li><code>n_cvfolds::Integer=5</code>: Corresponds to <code>nfolds</code> in tune, number of train/val splits.</li><li><code>logspace_eta::Bool=false</code>: Whether to treat the <code>eta</code> parameterspace as logarithmic. E.g. setting <code>parameters=(eta=(10^-3,10^-1) )</code> and <code>logspace_eta=true</code> will sample each <code>eta_candidate</code> from the log10 search space [-3.,-1.], and then pass <code>eta = 10^(eta_candidate)</code> to <code>MPSOptions</code>. </li><li><code>input_supertype::Type=Float64</code>: A numeric type that can represent the types of each hyperparameter being tuned as well as their upper and lower bounds. Typically, <code>Float64</code> is sufficient, but it can be set to <code>Int</code> for purely discrete optimisation problems etc. This is necessary for mixed Integer / Float hyperparameter tuning because certain solvers in <code>Optimization.jl</code> require variables in the search space to all be the same type.</li><li><code>tuning_abstol::Float64=1e-3</code>: Passed directly to <code>Optimization.jl</code>: Absolute tolerance in changes to the objective (loss) function. </li><li><code>tuning_maxiters::Integer=250</code>: Maximum number of iterations allowed when solving.</li><li><code>provide_x0::Bool=true</code>: Whether to provide initial conditions to the solve, ignored by <a href="#MPSTime.MPSRandomSearch"><code>MPSRandomSearch</code></a>. The initial condition will be <code>opts0</code>, unless it contains a hyperparameter outside the range specified by <code>parameters</code>, in which case the lower bound of that hyperparameter will be used.</li></ul><p>Further keyword arguments to <code>evaluate</code> are passed through to <a href="#MPSTime.tune"><code>tune</code></a>, and then <code>Optimization.jl</code> through the <a href="https://docs.sciml.ai/Optimization/stable/API/solve/#CommonSolve.solve-Tuple%7BOptimizationProblem%2C%20Any%7D"><code>Optimization.solve</code></a> function.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/5e18116353751a684416e1320fe6680957a9a73f/src/Training/hyperparameters/evaluate.jl#L1-L120">source</a></section></article><h3 id="Hyperparameter-tuning-utilities"><a class="docs-heading-anchor" href="#Hyperparameter-tuning-utilities">Hyperparameter tuning utilities</a><a id="Hyperparameter-tuning-utilities-1"></a><a class="docs-heading-anchor-permalink" href="#Hyperparameter-tuning-utilities" title="Permalink"></a></h3><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="MPSTime.make_stratified_cvfolds" href="#MPSTime.make_stratified_cvfolds"><code>MPSTime.make_stratified_cvfolds</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-julia hljs">make_stratified_cvfolds(
+    Xs::AbstractMatrix, 
+    ys::AbstractVector, 
+    nfolds::Integer; 
+    rng=Union{Integer, AbstractRNG}, 
+    shuffle::Bool=true
+) -&gt; folds::Vector{Vector{Vector{Int}}}</code></pre><p>Creates <code>nfold</code>-fold stratified cross validation train/validation splits for hyperparameter tuning, with the form:</p><pre><code class="language-julia-repl hljs">julia&gt; train_indices_fold_i, validation_indices_fold_i = folds[i];
+</code></pre><p>Uses MLJs <a href="https://juliaai.github.io/MLJ.jl/dev/evaluating_model_performance/#MLJBase.StratifiedCV"><code>StratifiedCV</code></a> method. </p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/5e18116353751a684416e1320fe6680957a9a73f/src/Training/hyperparameters/hyperopt_utils.jl#L82-L100">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="MPSTime.eval_loss" href="#MPSTime.eval_loss"><code>MPSTime.eval_loss</code></a> — <span class="docstring-category">Function</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-Julia hljs">eval_loss(
+    ::TuningLoss, 
+    mps::TrainedMPS, 
+    X_val::AbstractMatrix, 
+    y_val::AbstractVector, 
+    windows::Union{Nothing, AbstractVector}=nothing;
+    p_fold::Union{Nothing, Tuple}=nothing,
+    distribute::Bool=false,
+    )</code></pre><p>Evaluate the <code>TuningLoss</code> of <code>mps</code> on the validation time-series dataset specified by <code>X_val</code>, <code>y_val</code>.</p><p><code>p_fold</code> is to allow verbose logging during runs of <a href="#MPSTime.tune"><code>tune</code></a> and <a href="#MPSTime.evaluate"><code>evaluate</code></a>. When computing an imputation loss, <code>windows</code> are used to compute imputation losses, as specified in <a href="#MPSTime.tune"><code>tune</code></a>, and <code>distribute</code> will distribute the loss calculation across each time-series instance.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/5e18116353751a684416e1320fe6680957a9a73f/src/Training/hyperparameters/hyperopt_utils.jl#L132-L149">source</a></section></article><article class="docstring"><header><a class="docstring-article-toggle-button fa-solid fa-chevron-down" href="javascript:;" title="Collapse docstring"></a><a class="docstring-binding" id="MPSTime.MPSRandomSearch-hyperparameters" href="#MPSTime.MPSRandomSearch-hyperparameters"><code>MPSTime.MPSRandomSearch</code></a> — <span class="docstring-category">Type</span><span class="is-flex-grow-1 docstring-article-toggle-button" title="Collapse docstring"></span></header><section><div><pre><code class="language-Julia hljs">    MPSRandomSearch(sampling::Symbol=:LatinHypercube)</code></pre><p>Value type used to specify a random search algorithm for <a href="#MPSTime.tune"><code>hyperparameter tuning</code></a> an MPS. </p><p><code>Sampling</code> Specifies the method used to determine the search space. The supported sampling methods are </p><ul><li><code>:LatinHypercube</code>: An implementation of <a href="https://www.juliapackages.com/p/latinhypercubesampling"><code>LatinHypercubeSampling.jl</code></a>&#39;s random (pseudo-) Latin Hypercubesearch space generator. Supports both discrete and continuous hyperparameters.</li><li><code>:UniformRandom</code>: Generate a search space by randomly sampling from the interval [lower bound, upper bound] for each hyperparameter. Supports both discrete andcontinuous hyperparameters.</li><li><code>Exhaustive</code>: Perform an exhaustive gridsearch of all hyperparameters within the lower and upper bounds. Only supports discrete hyperparameters. Not actually a random search.  </li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/hugopstackhouse/MPSTime.jl/blob/5e18116353751a684416e1320fe6680957a9a73f/src/Training/hyperparameters/hyperopt_utils.jl#L8-L18">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../encodings/">« Encodings</a><a class="docs-footer-nextpage" href="../tools/">Tools »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.11.0 on <span class="colophon-date" title="Tuesday 13 May 2025 07:50">Tuesday 13 May 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
