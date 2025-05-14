@@ -19,6 +19,9 @@
   </a>
   <a href="https://github.com/JuliaTesting/Aqua.jl">
     <img src="https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg">
+  <a href="https://doi.org/10.5281/zenodo.15381028">
+    <img src="https://zenodo.org/badge/DOI/10.5281/zenodo.15381028.svg"   alt="DOI">
+  </a>
 </p>
 
 __MPSTime__ is a Julia package for learning the joint probability distribution of time series directly from data using matrix-product state (MPS) methods inspired by quantum many-body physics. 
