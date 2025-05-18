@@ -12,14 +12,37 @@ using Random
     Aqua.test_piracies(MPSTime) # test that the package does not commit type piracies
 end
 
+# download the test data from tsc.com
+include("source_test_data.jl")
+
 @testset "Bases" begin 
     include("basis_tests.jl")
+end
+
+@testset "Save/Load TrainedMPS" begin 
+    include("save_load.jl")
 end
 
 @testset "Analysis" begin
     include("analysis_tests.jl")
 end
 
+@testset "Classifier" begin
+    include("classification.jl")
+end
+
+@testset "Imputation" begin
+    include("imputation.jl")
+end
+
 @testset "Imputation Data Utils" begin
     include("simulation_tests.jl")
+end
+
+@testset "Tune" begin
+    include("hyperopt.jl")
+end
+
+@testset "Evaluate" begin
+    include("meta_hyperopt.jl")
 end

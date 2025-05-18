@@ -8,7 +8,7 @@ y_train = read(f, "y_train");
 y_test = read(f, "y_test");
 
 # train MPS on testing data
-opts = MPSOptions(d=4, chi_max=25;nsweeps=1, log_level=-5)
+opts = MPSOptions(d=4, chi_max=25;nsweeps=1, log_level=-5, verbosity=-10)
 mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
 
 """Basic functionality tests"""

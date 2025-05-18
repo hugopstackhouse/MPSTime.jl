@@ -18,13 +18,23 @@ struct BlockMissingMAR <: MARMechanism end
 struct LowestMNAR <: MNARMechanism end
 struct HighestMNAR <: MNARMechanism end
 
-remove_values(X::AbstractVector{Float64}, idxs::Vector{Int64}) = (Xc = deepcopy(X); Xc[idxs] .= NaN; Xc)
 percentage_missing_values(X::AbstractVector) = 100.0 * count(isnan, X) / length(X)
+
+function remove_values(X::AbstractVector{<:T}, idxs::Vector{Int64}) where {T <: Number}
+    Xc::Vector{promote_type(T, Float64)} = deepcopy(X); Xc[idxs] .= NaN
+    return Xc 
+end
+
 
 """
 ```Julia
-mcar(X::AbstractVector, fraction_missing::Float64, mechanism::MCARMechanism=BernoulliMCAR(); 
-         state::Union{Int, Nothing}=nothing, verbose::Bool=false) -> Tuple{Vector{Float64}, Vector{Int64}}
+mcar(
+    X::AbstractVector, 
+    fraction_missing::Float64, 
+    mechanism::MCARMechanism=BernoulliMCAR(); 
+    rng::AbstractRNG=Random.GLOBAL_RNG, 
+    verbose::Bool=false
+) -> Tuple{Vector{Float64}, Vector{Int64}}
 ```
 Generate missing data using a Missing Completely At Random (MCAR) mechanism, where the probability 
 of missingness is independent of both observed and unobserved values.
@@ -36,26 +46,21 @@ Available mechanisms:
 - `X::AbstractVector`: Input time series data.
 - `fraction_missing::Float64`: Target fraction of missing values, must be between 0 and 1 (default: 0.5).
 - `mechanism::MCARMechanism`: Mechanism used to generate missing values (default: `BernoulliMCAR()`).
-- `state::Union{Int, Nothing}`: Random seed for reproducibility (default: nothing).
+- `rng::AbstractRNG`: Random number generator for reproducibility (default: GLOBAL_RNG).
 - `verbose::Bool`: If true, prints comparison of target vs actual percentage of missing values.
 
 # Returns
-- `X_corrupted::Vector{Float64}`: Copy of input vector with NaN values at missing positions.
+- `X_corrupted::Vector`: Copy of input vector with NaN values at missing positions.
 - `missing_idxs::Vector{Int64}`: Indices of missing values.
 """
 function mcar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MCARMechanism=BernoulliMCAR();
-    state::Union{Int, Nothing}=nothing, verbose::Bool=false)
-
-    # specify random state for reproducibility
-    if !isnothing(state)
-        Random.seed!(state)
-    end
+    rng::AbstractRNG=Random.GLOBAL_RNG, verbose::Bool=false)
 
     if !(0.0 ≤ fraction_missing ≤ 1.0)
         throw(ArgumentError("fraction_missing must be between 0 and 1"))
     end
 
-    X_corrupted, missing_idxs = _mcar_sample(X, fraction_missing, mechanism)
+    X_corrupted, missing_idxs = _mcar_sample(X, fraction_missing, rng, mechanism)
     if verbose
         actual_missing = percentage_missing_values(X_corrupted)
         println("Expected missing: $(100fraction_missing)%. Actual missing: $(round(actual_missing, digits=2))%")
@@ -70,10 +75,10 @@ Determine missing value indices by sampling from a [Bernoulli distribution](http
 with probability of success ``p`` determined by the target percentage missing.
 Adapated from [Twala](https://www.tandfonline.com/doi/full/10.1080/08839510902872223).
 =#
-function _mcar_sample(X::AbstractVector{Float64}, fraction_missing::Float64, ::BernoulliMCAR)
+function _mcar_sample(X::AbstractVector, fraction_missing::Float64, rng::AbstractRNG, ::BernoulliMCAR)
     n = length(X)
     bernoulli_dist = Bernoulli(fraction_missing)
-    mask = rand(bernoulli_dist, n)
+    mask = rand(rng, bernoulli_dist, n)
     missing_idxs = collect(1:n)[mask]
     X_corrupted = remove_values(X, missing_idxs)
     return X_corrupted, missing_idxs
@@ -81,8 +86,13 @@ end
 
 """
 ```Julia
-mar(X::AbstractVector, fraction_missing::Float64, mechanism::MARMechanism=BlockMissingMAR();
-       state::Union{Int, Nothing}=nothing, verbose::Bool=false) -> Tuple{Vector{Float64}, Vector{Int64}}
+mar(
+    X::AbstractVector, 
+    fraction_missing::Float64, 
+    mechanism::MARMechanism=BlockMissingMAR();
+    rng::AbstractRNG=Random.GLOBAL_RNG, 
+    verbose::Bool=false
+) -> Tuple{Vector{Float64}, Vector{Int64}}
 ```
 Generate missing data using a Missing At Random (MAR) mechanism, where the probability of 
 missingness depends only on observed values or known information.
@@ -94,25 +104,26 @@ Available mechanisms:
 - `X::AbstractVector`: Input time series data.
 - `fraction_missing::Float64`: Target fraction of missing values, must be between 0 and 1 (default: 0.5).
 - `mechanism::MARMechanism`: Mechanism used to generate missing values (default: `BlockMissingMAR()`)
-- `state::Union{Int, Nothing}`: Random seed for reproducibility (default: nothing).
+- `rng::AbstractRNG`: Random number generator for reproducibility (default: GLOBAL_RNG).
 - `verbose::Bool`: If true, prints comparison of target vs actual percentage of missing values.
 
 # Returns
 - `X_corrupted::Vector{Float64}`: Copy of input vector with NaN values at missing positions.
 - `missing_idxs::Vector{Int64}`: Indices of missing values.
 """
-function mar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MARMechanism=BlockMissingMAR();
-    state::Union{Int, Nothing}=nothing, verbose::Bool=false)
-    # specify random state for reproducibility
-    if !isnothing(state)
-        Random.seed!(state)
-    end
-
+function mar(
+    X::AbstractVector, 
+    fraction_missing::Float64=0.5, 
+    mechanism::MARMechanism=BlockMissingMAR();
+    rng::AbstractRNG=Random.GLOBAL_RNG, 
+    verbose::Bool=false
+)
+    
     if !(0.0 ≤ fraction_missing ≤ 1.0)
         throw(ArgumentError("fraction_missing must be between 0 and 1"))
     end
 
-    X_corrupted, missing_idxs = _mar_sample(X, fraction_missing, mechanism)
+    X_corrupted, missing_idxs = _mar_sample(X, fraction_missing, rng, mechanism)
     if verbose
         actual_missing = percentage_missing_values(X_corrupted)
         println("Expected missing: $(100fraction_missing)%. Actual missing: $(round(actual_missing, digits=2))%")
@@ -132,19 +143,23 @@ Thus, the probability of being missing is independent of unobserved values, rely
 observed variable (time). 
 This makes the missing mechanism "Missing at Random."
 =#
-function _mar_sample(X::AbstractVector, fraction_missing::Float64, ::BlockMissingMAR)
+function _mar_sample(X::AbstractVector, fraction_missing::Float64, rng::AbstractRNG, ::BlockMissingMAR)
     n = length(X)
     npts_miss = round(Int, n * fraction_missing)
-    start_idx = rand(1:(n-npts_miss+1)) # choose random starting location from valid locations
+    start_idx = rand(rng, 1:(n-npts_miss+1)) # choose random starting location from valid locations
     missing_idxs = collect(start_idx:(start_idx+npts_miss - 1))
     X_corrupted = remove_values(X, missing_idxs)
     return X_corrupted, missing_idxs
 end
 
 """
-```
-mnar(X::AbstractVector, fraction_missing::Float64, mechanism::MNARMechanism=LowestMNAR();
-        verbose::Bool=false) -> Tuple{Vector{Float64}, Vector{Int64}}
+```julia
+mnar(
+    X::AbstractVector, 
+    fraction_missing::Float64, 
+    mechanism::MNARMechanism=LowestMNAR();
+    verbose::Bool=false
+) -> Tuple{Vector{Float64}, Vector{Int64}}
 ```
 Generate missing data using a Missing Not At Random (MNAR) mechanism, where the probability 
 of missingness depends on the unobserved values themselves.
@@ -164,8 +179,12 @@ Available mechanisms:
 - `X_corrupted::Vector{Float64}`: Copy of input vector with NaN values at missing positions.
 - `missing_idxs::Vector{Int64}`: Indices of missing values.
 """
-function mnar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MNARMechanism=LowestMNAR();
-    verbose::Bool=false)
+function mnar(
+    X::AbstractVector, 
+    fraction_missing::Float64=0.5, 
+    mechanism::MNARMechanism=LowestMNAR();
+    verbose::Bool=false
+)
 
     if !(0.0 ≤ fraction_missing ≤ 1.0)
         throw(ArgumentError("fraction_missing must be between 0 and 1"))

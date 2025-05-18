@@ -1,11 +1,11 @@
 
-function _generate_params(param, default_range)
+function _generate_params(param, default_range, rng::AbstractRNG)
     if isnothing(param)
-        rand(Uniform(default_range...))
+        rand(rng, Uniform(default_range...))
     elseif isa(param, Tuple)
-        rand(Uniform(param...))
+        rand(rng, Uniform(param...))
     elseif isa(param, Vector)
-        rand(param)
+        rand(rng, param)
     else
         param
     end
@@ -14,14 +14,14 @@ end
 """
 ```Julia
 trendy_sine(T::Int, n::Int; period=nothing, slope=nothing, phase=nothing, sigma=0.0, 
-    state=nothing, return_metadata=true) -> Tuple{Matrix{Float64}, Dict{Symbol, Any}}
+    rng=Random.GLOBAL_RNG, return_metadata=true) -> Tuple{Matrix{Float64}, Dict{Symbol, Any}}
 ```
 Generate `n` time series of length `T`, each composed of a sine wave with an optional linear trend and Gaussian noise defined by the
 equation:
 ```math
-x_t = \\sin\\left(\\frac{2\\pi}{\\tau}t + \\psi\\right) + \\frac{mt}{T} + \\sigma n_t
+x_t = \\sin\\left(\\frac{2\\pi}{\\tau}t + \\psi\\right) + \\frac{m t}{T} + \\sigma n_t
 ```
-with period ``\\tau``, time point ``\\t``, linear trend slope ``\\m``, phase offset ``\\psi``, noise scale ``\\sigma`` and ``\\n_t \\sim \\N(0,1)``
+with period ``\\tau``, time point ``t``, linear trend slope ``m``, phase offset ``\\psi``, noise scale ``\\sigma`` and ``n_t \\sim \\mathcal{N}(0,1)``
 # Arguments
 - `T::Int`: Length of each time series
 - `n::Int`: Number of time series instances to generate
@@ -43,7 +43,7 @@ with period ``\\tau``, time point ``\\t``, linear trend slope ``\\m``, phase off
     * `Tuple`: Bounds for uniform random values, e.g., (0.0, π) → ψ ~ U(0.0, π)
     * `Vector`: Sample from discrete uniform distribution
 - `sigma::Real`: Standard deviation of Gaussian noise, σ (default: 0.0)
-- `state::Union{Nothing, Int}`: Random seed for reproducibility (default: nothing)
+- `rng::AbstractRNG`: Random number generator for reproducibility (default: Random.GLOBAL_RNG)
 - `return_metadata::Bool`: Return generation parameters (default: true)
 
 # Returns
@@ -51,9 +51,8 @@ with period ``\\tau``, time point ``\\t``, linear trend slope ``\\m``, phase off
 - Dictionary of generation parameters (:period, :slope, :phase, :sigma, :T, :n)
 """
 function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}=nothing, slope::Union{Nothing, Real, Tuple, Vector}=nothing, 
-    phase::Union{Nothing, Real, Tuple, Vector}=nothing, sigma::Real=0.0, return_metadata::Bool=true, state::Union{Nothing, Int}=nothing)
+    phase::Union{Nothing, Real, Tuple, Vector}=nothing, sigma::Real=0.0, return_metadata::Bool=true, rng::AbstractRNG=Random.GLOBAL_RNG)
 
-    !isnothing(state) && Random.seed!(state)
     # set default ranges for random
     DEFAULT_RANGES = (
         pe = (1.0, 50.0),
@@ -61,14 +60,14 @@ function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}
         ph = (0.0, 2π)
     )
     # Generate parameter vectors
-    period_vals = [_generate_params(period, DEFAULT_RANGES.pe) for _ in 1:n]
-    slope_vals = [_generate_params(slope, DEFAULT_RANGES.sl) for _ in 1:n]
-    phase_vals = [_generate_params(phase, DEFAULT_RANGES.ph) for _ in 1:n]
+    period_vals = [_generate_params(period, DEFAULT_RANGES.pe, rng) for _ in 1:n]
+    slope_vals = [_generate_params(slope, DEFAULT_RANGES.sl, rng) for _ in 1:n]
+    phase_vals = [_generate_params(phase, DEFAULT_RANGES.ph, rng) for _ in 1:n]
     
     X = Matrix{Float64}(undef, n, T)
     ts = 1:T
     for (i, series) in enumerate(eachrow(X))
-        @. series = sin(2pi/period_vals[i] * ts + phase_vals[i]) + (slope_vals[i] * ts) / T + sigma * randn()
+        @. series = sin(2pi/period_vals[i] * ts + phase_vals[i]) + (slope_vals[i] * ts) / T + sigma * randn(rng)
     end
 
     info = nothing
@@ -85,12 +84,7 @@ function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}
     return X, info
 end
 
-function _single_state_space(T::Int; s::Int=2, sigma::Float64=0.3, rng::Union{Nothing, AbstractRNG}=nothing)
-
-    if isnothing(rng)
-        rng = Xoshiro()
-    end
-
+function _single_state_space(T::Int; s::Int=2, sigma::Float64=0.3, rng::AbstractRNG=Random.GLOBAL_RNG)
     T += s # include burn-in
     xs = zeros(Float64, T)
     thetas = zeros(Float64, T)
@@ -112,18 +106,18 @@ function _single_state_space(T::Int; s::Int=2, sigma::Float64=0.3, rng::Union{No
 end
 
 """
-    state_space(T::Int, n::Int, s::Int=2; sigma::Float64=0.3, state::Union{Int, Nothing}=nothing) -> Matrix{Float64}
+    state_space(T::Int, n::Int, s::Int=2; sigma::Float64=0.3, rng::AbstractRNG}=Random.GLOBAL_RNG) -> Matrix{Float64}
 
 Generate `n` time series of length `T` each from a state space model with residual terms drawn from a normal distribution
 N(0, `sigma`) and lag order `s`. Time series are generated from the following model:
 ```math
-x_t = \\mu_t + \\theta_t + \\eta_t \\
-\\mu_t = \\mu_{t-1} + \\lambda_{t-1} + \\xi_t \\
-\\lambda_t = \\lambda_{t-1} + \\zeta_{t} \\
-\\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t \\
+x_t = \\mu_t + \\theta_t + \\eta_t
+\\mu_t = \\mu_{t-1} + \\lambda_{t-1} + \\xi_t
+\\lambda_t = \\lambda_{t-1} + \\zeta_{t}
+\\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t
 ```
-where the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
-randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
+where ``x_t`` is the ``t``-th value in the time series, and the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
+randomly drawn from a normal distribution ``\\mathcal{N}(0, \\sigma)``.
 
 # Arguments
 - `T` -- Time series length.
@@ -132,12 +126,12 @@ randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
 # Keyword Arguments
 - `s` -- Lag order (optional, default: `2`).
 - `sigma` -- Noise standard deviation (optional, default: `0.3`).
-- `rng` -- Random number generator of type `AbstractRNG` (optional, default: `nothing`).
+- `rng` -- Random number generator of type `AbstractRNG` (optional, default: `Random.GLOBAL_RNG`).
 
 # Returns 
-A Matrix{Float64} of shape (n, T) containing the simulated time-series instances. 
+A `Matrix{Float64}` of shape (n, T) containing the simulated time-series instances. 
 """
-function state_space(T::Int, n::Int; s::Int=2, sigma::Float64=0.3, rng::Union{Nothing, AbstractRNG}=nothing)
+function state_space(T::Int, n::Int; s::Int=2, sigma::Float64=0.3, rng::AbstractRNG=Random.GLOBAL_RNG)
     if s < 2
         throw(ArgumentError("Lag order s must be ≥ 2."))
     end

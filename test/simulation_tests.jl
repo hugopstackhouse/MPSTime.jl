@@ -20,8 +20,10 @@ test_data = rand(5, 10_000);
     # check for more than 1% difference
     @test isapprox(mean(nmissing), (pm * size(test_data, 2)); rtol=0.01)
     # check for reproducibility/randomness
-    outX1, outInd1 = mcar(test_data[1, :], pm; state=42)
-    outX2, outInd2 = mcar(test_data[1, :], pm; state=42)
+    rng1 = Xoshiro(123);
+    outX1, outInd1 = mcar(test_data[1, :], pm; rng=rng1)
+    rng2 = Xoshiro(123)
+    outX2, outInd2 = mcar(test_data[1, :], pm; rng=rng2)
     @test isequal(outX1, outX2)
     @test isequal(outInd1, outInd2)
     @test !isequal(outX1, outX)
@@ -44,8 +46,10 @@ end
     @test isequal(length(outInd), (pm * size(test_data, 2)))
     
     # check for reproducibility/randomness
-    outX1, outInd1 = mar(test_data[1, :], pm; state=42)
-    outX2, outInd2 = mar(test_data[1, :], pm; state=42)
+    rng1 = Xoshiro(123);
+    rng2 = Xoshiro(123);
+    outX1, outInd1 = mar(test_data[1, :], pm; rng=rng1)
+    outX2, outInd2 = mar(test_data[1, :], pm; rng=rng2)
     @test isequal(outX1, outX2)
     @test isequal(outInd1, outInd2)
     @test !isequal(outX1, outX)
@@ -91,8 +95,10 @@ end
     X, info_nometa = trendy_sine(T, n; return_metadata=false)
     @test isnothing(info_nometa)
     # check reproducibility
-    X1, _ = trendy_sine(T, n; state=42)
-    X2, _ = trendy_sine(T, n; state=42)
+    rng1 = Xoshiro(1234);
+    X1, _ = trendy_sine(T, n; rng=rng1)
+    rng2 = Xoshiro(1234);
+    X2, _ = trendy_sine(T, n; rng=rng2)
     @test isequal(X1, X2)
     # parameter checks
     period_fixed = 10.0
@@ -138,8 +144,10 @@ end
     @test isa(X, Matrix)
     @test size(X) == (n, T)
     # check reproducibility
-    X1 = MPSTime.state_space(T, n; rng=Xoshiro(123))
-    X2 =  MPSTime.state_space(T, n; rng=Xoshiro(123))
+    rng1 = Xoshiro(745)
+    X1 = MPSTime.state_space(T, n; rng=rng1)
+    rng2 = Xoshiro(745)
+    X2 =  MPSTime.state_space(T, n; rng=rng2)
     @test isequal(X1, X2)
     @test !isequal(X, X1)
     # check errors

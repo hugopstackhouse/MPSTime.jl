@@ -23,7 +23,8 @@ end
 function get_enc_args_from_opts(
         opts::Options, 
         X_train::Matrix, 
-        y::Vector{Int}
+        y::Vector{Int};
+        verbosity::Integer=1.
     )
     """Rescale and then Re-encode the scaled training data using the time dependent
     encoding to get the encoding args."""
@@ -34,7 +35,7 @@ function get_enc_args_from_opts(
     if isnothing(opts.encoding.init)
         enc_args = []
     else
-        println("Re-encoding the training data to get the encoding arguments...")
+        verbosity >= 1 && println("Re-encoding the training data to get the encoding arguments...")
         order = sortperm(y)
         enc_args = opts.encoding.init(X_train_scaled[:,order], y[order]; opts=opts)
     end
@@ -53,7 +54,8 @@ function init_imputation_problem(
         opts::AbstractMPSOptions; 
         verbosity::Integer=1,
         dx::Float64 = 1e-4,
-        guess_range::Union{Nothing, Tuple{R,R}}=nothing
+        guess_range::Union{Nothing, Tuple{R,R}}=nothing,
+        static_xvecs::Bool=true
     ) where {R <: Real}
     """No saved JLD File, just pass in variables that would have been loaded 
     from the jld2 file. Need to pass in reconstructed opts struct until the 
@@ -83,16 +85,24 @@ function init_imputation_problem(
         verbosity > 0 && println(" - Time independent encoding - $(opts.encoding.name) - detected.")
         verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max)")
     end
-    enc_args = get_enc_args_from_opts(opts, X_train, y_train)
+    enc_args = get_enc_args_from_opts(opts, X_train, y_train; verbosity=verbosity)
 
     xvals=collect(range(guess_range...; step=dx))
     site_index=Index(opts.d)
     if opts.encoding.istimedependent
-        verbosity > -2 && println("Pre-computing possible encoded values of x_t, this may take a while... ")
+        verbosity > -1 && println("Pre-computing possible encoded values of x_t, this may take a while... ")
         # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
-        xvals_enc = [[get_state(x, opts, j, enc_args) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
+        if static_xvecs
+            xvals_enc = [[SVector{opts.d}(get_state(x, opts, j, enc_args)) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
+        else
+            xvals_enc = [[(x, opts, j, enc_args) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
+        end
     else
-        xvals_enc_single = [get_state(x, opts, 1, enc_args) for x in xvals]
+        if static_xvecs
+            xvals_enc_single = [SVector{opts.d}(get_state(x, opts, 1, enc_args)) for x in xvals]
+        else
+            xvals_enc_single = [get_state(x, opts, 1, enc_args) for x in xvals]
+        end
         xvals_enc = [view(xvals_enc_single, :) for _ in 1:length(mps)]
     end
 
@@ -113,31 +123,89 @@ function init_imputation_problem(
 end
 
 """
-    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray=zeros(Int, size(X_test,1)); <keyword arguments>) -> imp::ImputationProblem
+    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray=zeros(Int, size(X_test,1)), [custom_encoding::MPSTime.Encoding]; <keyword arguments>) -> imp::ImputationProblem
+    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, [custom_encoding::MPSTime.Encoding]); <keyword arguments>) -> imp::ImputationProblem
+
 
 Initialise an imputation problem using a trained MPS and relevent test data.
 
-This involves a lot of pre-computation, which can be quite time intensive for data-driven bases. For unclassed/unsupervised data `y_test` may be omitted.
+This involves a lot of pre-computation, which can be quite time intensive for data-driven bases. For unclassed/unsupervised data `y_test` may be omitted. 
+If the MPS was trained with a custom encoding, then this encoding must be passed to `init_imputation_problem`.
 
 # Keyword Arguments
 - `guess_range::Union{Nothing, Tuple{<:Real,<:Real}}=nothing`: The range of values that guesses are allowed to take. This range is applied to normalised, encoding-adjusted time-series data. To allow any guess, leave as nothing, or set to encoding.range (e.g. [(-1., 1.) for the legendre encoding]).
 - `dx::Float64 = 1e-4`: The spacing between possible guesses in normalised, encoding-adjusted units. When imputing missing data with an MPS method, the imputed values will be selected from 
     range(guess_range...; step=dx)
-- `verbosity::Integer=1`: The verbosity of the initialisation process. Useful for debugging, or to completely suppress output.
+- `verbosity::Integer=1`: The verbosity of the initialisation process. Useful for debugging, set to -1 to completely suppress output.
+- `test_encoding::Bool=true`: Whether to double check the encoding and scaling options are correct. This is strongly recommended but has a slight performance cost, so may be disabled.
+- `static_xvecs::Bool=true`: Whether to store encoded xvalues as StaticVectors. Usually improved performance
 """
-function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractVector=zeros(Int, size(X_test,1)); verbosity::Integer=1)
+function init_imputation_problem(
+    mps::TrainedMPS, 
+    X_test::AbstractMatrix, 
+    y_test::AbstractVector=zeros(Int, size(X_test,1)), 
+    custom_encoding::Union{Encoding, Nothing}=nothing; 
+    test_encoding::Bool=true, 
+    kwargs...)
+
+    X_train = mps.train_data.original_data
     y_train = [ts.label for ts in mps.train_data.timeseries]
-    return init_imputation_problem(mps.mps, mps.train_data.original_data, y_train, X_test, y_test, mps.opts_concrete; verbosity=verbosity)
+    opts = mps.opts
+    opts_concrete = safe_options(opts) # make sure options isnt abstract
+
+    if !isnothing(custom_encoding)
+        if !(opts.encoding in [:custom, :Custom])
+            throw(ArgumentError("To impute with a custom encoding, the MPS must have been trained with a custom encoding. See the details of the \'encoding = :Custom\' setting in MPSOptions"))
+        else
+            opts_concrete = _set_options(opts_concrete; encoding=custom_encoding)
+        end
+    end
+
+    # test that nothing has gone wrong with the encoding
+    if test_encoding
+        X_train_scaled, norms = transform_train_data(permutedims(X_train); opts=opts_concrete)
+
+        classes = unique(vcat(y_train))
+        num_classes = length(classes)
+
+        sort!(classes)
+        class_keys = Dict(zip(classes, 1:num_classes)) # why did I write encode_dataset in this way? (#TODO move the definition of of class_keys inside encode_dataset)
+                                                       # TODO TODO use scientific types to avoid the problem entirely
+    
+        
+        s = EncodeSeparate{opts.encode_classes_separately}()
+        sites = get_siteinds(mps.mps)
+        training_states, enc_args_tr = encode_dataset(s, X_train, X_train_scaled, y_train, "train", sites; opts=opts_concrete, class_keys=class_keys)     
+        if !isapprox(training_states, mps.train_data)
+
+            if isnothing(custom_encoding)
+                error("Could not reproduce the encoded training set from the TrainedMPS. This should never happen, has there been some data corruption?")
+            else
+                error("Could not reproduce the encoded training set from the TrainedMPS, double check that custom_encoding matches the encoding the MPS was trained with. Otherwise, this should never happen, has there been some data corruption?")
+            end
+        end
+    end
+
+    return init_imputation_problem(mps.mps, X_train, y_train, X_test, y_test, opts_concrete; kwargs...)
+end
+
+
+function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, custom_encoding::Encoding; kwargs...)
+
+    return init_imputation_problem(mps, X_test, zeros(Int, size(X_test,1)), custom_encoding; kwargs...)
 end
 
 
 
 """
 ```Julia
-kNN_impute(imp::ImputationProblem, 
-           class::Any, instance::Integer, 
-           missing_sites::AbstractVector{<:Integer}; 
-           k::Integer=1) -> [neighbour1::Vector, neighbour2::Vector, ...]
+kNN_impute(
+    imp::ImputationProblem, 
+    [class::Any,] 
+    instance::Integer, 
+    missing_sites::AbstractVector{<:Integer}; 
+    k::Integer=1
+) -> [neighbour1::Vector, neighbour2::Vector, ...]
 ```
 Impute `missing_sites` using the `k` nearest neighbours in the test set, based on Euclidean distance.
 
@@ -184,7 +252,14 @@ function kNN_impute(
 
 
 end
-
+function kNN_impute(
+        imp::ImputationProblem,
+        instance::Integer, 
+        missing_sites::AbstractVector{<:Integer}; 
+        k::Integer=1
+    )
+    return kNN_impute(imp, 0, instance, missing_sites;k=k)
+end
 
 function get_predictions(
         imp::ImputationProblem,
@@ -203,7 +278,7 @@ function get_predictions(
 
     mps = imp.mpss[imp.class_map[class]]
     cl_inds = (1:length(imp.y_test))[imp.y_test .== class] # For backwards compatibility reasons
-    target_ts_raw = imp.X_test[cl_inds[instance], :]
+    target_ts_raw = X_test[cl_inds[instance], :]
     target_timeseries= deepcopy(target_ts_raw)
 
     # transform the data
@@ -212,10 +287,10 @@ function get_predictions(
     X_train_scaled, norms = transform_train_data(X_train; opts=imp.opts)
     target_timeseries_full, oob_rescales_full = transform_test_data(target_ts_raw, norms; opts=imp.opts)
 
-    target_timeseries[missing_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
+    target_timeseries[missing_sites] .= mean(X_train[:]) # make it impossible for the unknown region to be used, even accidentally
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
 
-    sites = siteinds(mps)
+    sites = get_siteinds(mps)
     target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
     pred_err = []
@@ -236,7 +311,7 @@ function get_predictions(
     elseif method == :ITS
         ts = impute_ITS(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, missing_sites; impute_order=impute_order, kwargs...)
 
-    elseif method ==:kNearestNeighbour
+    elseif method == :kNearestNeighbour
         ts = kNN_impute(imp, class, instance, missing_sites; kwargs...)
 
         if !invert_transform
@@ -245,18 +320,68 @@ function get_predictions(
             end
         end
 
+    elseif method == :flatBaseline
+        ts = deepcopy(target_ts_raw)
+        ts[missing_sites] .= mean(X_train)
+        ts = [ts]
+        if !invert_transform
+            for i in eachindex(ts)
+                ts[i], _ = transform_test_data(ts[i], norms; opts=imp.opts)
+            end
+        end
     else
-        error("Invalid method. Choose :mean (Expect/Var), :mode, :median, :kNearestNeighbour, :ITS, et. al")
+        error("Invalid method. Choose :mean, :mode, :median, :kNearestNeighbour, :flatBaseline or :ITS")
     end
 
 
-    if invert_transform && !(method == :kNearestNeighbour)
+    if invert_transform && !(method in [:kNearestNeighbour, :flatBaseline])
         if !isempty(pred_err)
             for i in eachindex(ts)
                 pred_err[i] .+=  ts[i] # add the time-series, so nonlinear rescaling is reversed correctly
-
                 ts[i] = invert_test_transform(ts[i], oob_rescales, norms; opts=imp.opts)
-                pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
+
+
+                try
+                    pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
+                catch e
+                    if e isa DomainError
+                        @warn "Imputation error was too large and could not be transformed back into unnormalised units, returning problematic error values as NaNs. Try tuning your hyperparameters. The uncorrected error can be viewed in normalised space by passing invert_transform=false to MPS_impute."
+                        max_retries = length(pred_err[i])
+                        problematic_errors = []
+                        j = 1
+                        success = false
+                        while j <= max_retries # this needs to generalise to any basis / any kind of normalisation, so we have to remove values and try to get invert_test_transform to work
+                            ei = argmax(abs.(pred_err[i])) 
+                            push!(problematic_errors, ei)
+                            pred_err[i][ei] = mean(ts[i]) # the scale is unknown, so this is the safest value I can think to use 
+                            safe = true
+                            try
+                                pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
+                            catch e2
+                                if e2 isa DomainError
+                                    safe = false
+                                else
+                                    throw(e)
+                                end
+                            end
+
+                            if safe
+                                success = true
+                                break
+                            end
+                
+                            j += 1
+                        end
+
+                        if !success
+                            @warn "All of the errors were too large!"
+                        end
+
+                        pred_err[i][problematic_errors] .= NaN
+                    else
+                        throw(e)
+                    end
+                end
 
                 pred_err[i] .-=  ts[i] # remove the time-series, leaving the unscaled uncertainty          
             end
@@ -270,6 +395,8 @@ function get_predictions(
 
         target = target_ts_raw
 
+    elseif method in [:kNearestNeighbour, :flatBaseline]
+        target = target_ts_raw
     else
         target = target_timeseries_full
     end
@@ -286,17 +413,24 @@ end
 
 """
 ```Julia
-MPS_impute(imp::ImputationProblem, 
-           class::Any, 
-           instance::Integer, 
-           missing_sites::AbstractVector{<:Integer}, 
-           method::Symbol=:median; 
-           <keyword arguments>) -> (imputed_instance::Vector, errors::Vector, target::Vector, stats::Dict, p::Vector{Plots.Plot})
+MPS_impute(
+    imp::ImputationProblem, 
+    [class::Any,] 
+    instance::Integer, 
+    missing_sites::AbstractVector{<:Integer}, 
+    [method::Symbol=:median]; 
+    <keyword arguments>
+) -> (imputed_instances::Vector, errors::Vector, targets::Vector, stats::Dict, plots::Vector{Plots.Plot})
 ```
-Impute the `missing_sites` using an MPS-based approach, selecting the trajectory from the conditioned distribution with `method`
+Impute the `missing_sites` using an MPS-based approach, selecting the trajectory from the conditioned distribution with `method`. 
 
-See [`init_imputation_problem`](@ref) for constructing an `ImputationProblem`` instance out of a trained MPS. The `instance` number is relative to the class, so
-class 1, instance 2 would be distinct from class 2, instance 2. 
+The imputed time series, the imputation errors, the original time series, statistics about goodness of fit, and any plots generated by `MPS_impute` 
+are returned by `imputed_instances`, `errors`, `targets`, `stats`, and `plots` respectively. These will always be length one vectors, 
+unless the `ITS` or `kNearestNeighbour` method are used, which may cause `MPS_impute` to return multiple potential imputations with the associated errors, stats, and plots. 
+Goodness of fit is always measured with respect to _unscaled_
+
+See [`init_imputation_problem`](@ref) for constructing an `ImputationProblem` instance out of a trained MPS. The `instance` number is relative to the class, so
+class 1, instance 2 would be distinct from class 2, instance 2.
 
 # Imputation Methods
 - `:median`: For each missing value, compute the probability density function of the possible outcomes from the MPS, and choose the median. This method is the most robust to outliers. Keywords:
@@ -310,12 +444,14 @@ class 1, instance 2 would be distinct from class 2, instance 2.
 
 - `:ITS`: For each missing value, choose a value at random with probability weighted by the probability density function of the possible outcomes. Keywords:
     * `rseed::Integer=1`: Random seed for producing the trajectories.
-    * `num_trajectories::Integer=1: Number of trajectories to compute.
+    * `num_trajectories::Integer=1`: Number of trajectories to compute.
     * `rejection_threshold::Union{Float64, Symbol}=:none`: Number of WMADs allowed between adjacent points. Setting this low helps suppress rapidly varying trajectories that occur by bad luck. 
     * `max_trials::Integer=10`: Number of attempts allowed to make guesses conform to rejection_threshold before giving up.
 
 - `:kNearestNeighbour`: Select the `k` nearest neighbours in the training set using Euclidean distance to the known data. Keyword:
     * `k`: Number of nearest neighbours to return. See [`kNN_impute`](@ref)
+
+- `flatBaseline:` Predict the missing values are just the mean of the training set.
 
 # Keyword Arguments
 - `impute_order::Symbol=:forwards`: Whether to impute the missing values `:forwards` (left to right) or `:backwards` (right to left)
@@ -326,7 +462,7 @@ class 1, instance 2 would be distinct from class 2, instance 2.
 - `full_metrics::Bool=false`: Whether to compute every metric (MAPE, SMAPE, MAE, MSE, RMSE) or just MAE and MAPE.
 - `print_metric_table::Bool=false`: Whether to print the `stats` as a table.
 - `invert_transform::Bool=true`:, # Whether to undo the sigmoid transform/minmax normalisation before returning the imputed points. If this is false, imputed_instance, errors, target timeseries, stats, and plot y-axis will all be scaled by the data preprocessing / normalisation and fit to the encoding domain.
-- `kwargs...`: Extra keywords passed to the imputation method. See the Imputation Methods section.
+- `kwargs...`: Extra keywords passed to `MPS_impute` are forwarded to the imputation method. See the Imputation Methods section.
 """
 function MPS_impute(
         imp::ImputationProblem,
@@ -348,7 +484,7 @@ function MPS_impute(
 
     mps = imp.mpss[imp.class_map[class]]
     chi_mps = maxlinkdim(mps)
-    d_mps = siteinds(mps)[1] |> ITensors.dim
+    d_mps = get_siteinds(mps)[1] |> ITensors.dim
     enc_name = imp.opts.encoding.name
 
     ts, pred_err, target = get_predictions(imp, class, instance, missing_sites, method; invert_transform=invert_transform, impute_order=impute_order, kwargs...)
@@ -413,6 +549,18 @@ function MPS_impute(
     return ts, pred_err, target, metrics, ps
 end
 
+# classless method
+function MPS_impute(
+        imp::ImputationProblem,
+        instance::Integer, 
+        missing_sites::Vector{Int}, 
+        method::Symbol=:median;
+        kwargs... 
+    )
+
+    return MPS_impute(imp, 0, instance, missing_sites, method; kwargs...)
+
+end
 
 
 """
@@ -421,7 +569,7 @@ get_cdfs(imp::ImputationProblem,
            class::Any, 
            instance::Integer, 
            missing_sites::AbstractVector{<:Integer}, 
-           method::Symbol=:median; 
+           [method::Symbol=:median]; 
            <keyword arguments>) -> (cdfs::Vector{Vector}, ts::Vector, pred_err::Vector, target_timeseries_full::Vector)
 ```
 Impute the `missing_sites` using an MPS-based approach, selecting the trajectory from the conditioned distribution with `method`, and returns the cumulative distribution function used to infer each missing value. 
@@ -434,10 +582,15 @@ function get_cdfs(
         imp::ImputationProblem,
         class::Any, 
         instance::Integer, 
-        missing_sites::Vector{Int};
+        missing_sites::Vector{Int},
+        method::Symbol=:median;
         kwargs... # method specific keyword arguments
     )
 
+    if method != :median
+        throw(ArgumentError("get_cdfs only supports method=:median")) #TODO ...
+    end
+    
     # setup imputation variables
     X_test = imp.X_test
     X_train = imp.X_train
@@ -456,7 +609,7 @@ function get_cdfs(
     target_timeseries[missing_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
 
-    sites = siteinds(mps)
+    sites = get_siteinds(mps)
     target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
 

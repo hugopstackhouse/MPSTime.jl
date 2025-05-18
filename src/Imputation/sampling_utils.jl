@@ -16,57 +16,41 @@ function get_state(
     
 end
 
-
-function get_conditional_probability(s::Index, state::AbstractVector{<:Number}, rdm::ITensor)
-    """For a given site, and its associated conditional reduced 
-    density matrix (rdm), obtain the conditional
-    probability of a state ϕ(x)."""
-    # get σ_k = |⟨x_k | ρ | x_k⟩|
-    return state' * Matrix(rdm, [s', s]) * state |> abs
-
-end
-
-function get_conditional_probability(state::ITensor, rdm::ITensor)
-    """For a given site, and its associated conditional reduced 
-    density matrix (rdm), obtain the conditional
-    probability of a state ϕ(x)."""
-    # get σ_k = |⟨x_k | ρ | x_k⟩|
-    return abs(getindex(dag(state)' * rdm * state, 1))
+function get_conditional_probability(
+    state::AbstractVector, 
+    A::Matrix, 
+)
+    p = BLAS.gemv('C', A, state)
+    return abs(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
-
-
 
 function get_conditional_probability(
-        x::Float64, 
-        rdm::Matrix, 
-        opts::Options, 
-        j::Integer,
-        enc_args::AbstractVector
-    )
-
-    state = get_state(x, opts, j, enc_args)
-
-    return abs(state' * rdm * state) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+    state::AbstractVector, 
+    A::Vector, 
+)
+    # p = BLAS.gemv('C', A, state)
+    return abs2(dot(state,A)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
 
-function get_normalisation_constant(s::Index, rdm::ITensor, args...)
-    """Compute the normalisation constant, Z_k, such that 
-    the conditional distribution integrates to one.
-    """
-    return get_normalisation_constant(Matrix(rdm, [s', s]), args...) #TODO Why is it done this way again?
+function get_conditional_probability(
+    state::SVector, 
+    A::Matrix, 
+)
+    p = state'* A
+    return abs(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
 
+function get_conditional_probability(
+    state::SVector{D}, 
+    rdm::MMatrix{D,D}, 
+) where D
+    return abs(dot(state, rdm, state)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
-function get_normalisation_constant(rdm::Matrix, opts::Options, j::Integer, enc_args::AbstractVector)
-    prob_density_wrapper(x) = get_conditional_probability(x, rdm, opts, j, enc_args)
-    lower, upper = opts.encoding.range
-    Z, _ = quadgk(prob_density_wrapper, lower, upper)
-
-    return Z
 end
+
 
 function get_normalisation_constant(xs::AbstractVector{Float64}, pdf::AbstractVector{Float64})
     return NumericalIntegration.integrate(xs, pdf, NumericalIntegration.TrapezoidalEvenFast())
@@ -78,7 +62,7 @@ end
 
 
 function get_mean_from_rdm(
-        rdm::ITensor, 
+        rdm::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
@@ -92,7 +76,7 @@ function get_mean_from_rdm(
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm) 
+        @inline prob = get_conditional_probability(state, rdm) 
         probs[index] = prob
     end
 
@@ -100,7 +84,7 @@ function get_mean_from_rdm(
 
     # expectation
     expect_x = mapreduce(*,+,samp_xs, probs) * dx / Z
-    expect_state = itensor(get_state(expect_x, opts, j, enc_args),s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    expect_state = get_state(expect_x, opts, j, enc_args) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
     std_val = 0.
     if get_std
@@ -118,7 +102,7 @@ end
 
 
 function get_mode_from_rdm(
-        rdm::ITensor, 
+        rdm::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
@@ -133,7 +117,7 @@ function get_mode_from_rdm(
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
+        @inline prob = get_conditional_probability(state, rdm)
         probs[index] = prob
     end
     
@@ -155,14 +139,14 @@ function get_mode_from_rdm(
         end
     end
     mode_x = samp_xs[mode_idx]
-    mode_state = itensor(samp_states[mode_idx], s)
+    mode_state = samp_states[mode_idx]
 
     return mode_x, mode_state, 0. # the mode has no way to compute the error, hence always returning 0
 
 end
 
 get_mode_from_rdm(
-    rdm::ITensor, 
+    rdm::AbstractVecOrMat, 
     samp_xs::AbstractVector{Float64}, 
     samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
     s::Index, 
@@ -176,7 +160,7 @@ get_mode_from_rdm(
 
 
 function get_median_from_rdm(
-        rdm::ITensor, 
+        rdm::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
@@ -190,7 +174,7 @@ function get_median_from_rdm(
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
+        @inline prob = get_conditional_probability(state, rdm)
         probs[index] = prob
     end
 
@@ -202,7 +186,8 @@ function get_median_from_rdm(
     median_arg = argmin(@. abs(cdf - 0.5))
 
     median_x = samp_xs[median_arg]
-    median_s = itensor(get_state(median_x, opts, j, enc_args), s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    median_s = samp_states[median_arg] / sqrt(Z)
+    # median_s = itensor(get_state(median_x, opts, j, enc_args), s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
     wmad_x = 0.
     if get_wmad
@@ -218,7 +203,7 @@ end
 
 
 function get_median_and_cdf(
-        rdm::ITensor, 
+        rdm::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
@@ -232,7 +217,7 @@ function get_median_and_cdf(
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
+        @inline prob = get_conditional_probability(state, rdm)
         probs[index] = prob
     end
 
@@ -244,7 +229,7 @@ function get_median_and_cdf(
     median_arg = argmin(@. abs(cdf - 0.5))
 
     median_x = samp_xs[median_arg]
-    median_s = itensor(get_state(median_x, opts, j, enc_args),s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    median_s = samp_states[median_arg] / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
     wmad_x = 0.
     if get_wmad
@@ -257,7 +242,7 @@ end
 
 
 function get_cdf(
-        rdm::ITensor, 
+        rdm::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}},
         s::Index
@@ -265,7 +250,7 @@ function get_cdf(
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
+        @inline prob = get_conditional_probability(state, rdm)
         probs[index] = prob
     end
 
@@ -276,7 +261,7 @@ function get_cdf(
 end
 
 function get_sample_from_rdm(
-        rdm::ITensor, 
+        rdm::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
@@ -326,7 +311,7 @@ function get_sample_from_rdm(
         #@show rejections
     end
     # map sampled x_k back to a state
-    sampled_state = itensor(samp_states[x_ind], s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    sampled_state = samp_states[x_ind] / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
     return sampled_x, sampled_state, wmad 
 end
 
