@@ -19,6 +19,16 @@ mutable struct ImputationProblem
     class_map::Dict{Any, Int}
 end
 
+mutable struct SynthGenProblem
+    mpss::AbstractVector{<:MPS}
+    X_train::Matrix{<:Real}
+    y_train::Vector{<:Integer}
+    opts::Options
+    enc_args::Vector{Any}
+    x_guess_range::EncodedDataRange
+    class_map::Dict{Any, Int}
+end
+
 # probably redundant if enc args are provided externally from training
 function get_enc_args_from_opts(
         opts::Options, 
@@ -41,6 +51,141 @@ function get_enc_args_from_opts(
     end
 
     return enc_args
+
+end
+
+function init_synthgen_problem(
+    mps::MPS, 
+    X_train::AbstractMatrix{R},
+    y_train::AbstractVector{Int},
+    opts::AbstractMPSOptions;
+    verbosity::Integer=1,
+    dx::Float64 = 1e-4,
+    guess_range::Union{Nothing, Tuple{R,R}}=nothing,
+    static_xvecs::Bool=true) where {R <: Real}
+    if opts isa MPSOptions
+        opts = Options(opts)
+    end
+
+    if isnothing(guess_range)
+        guess_range = opts.encoding.range
+    end
+
+    # extract info
+    verbosity > 0 && println("+"^60 * "\n"* " "^25 * "Summary:\n")
+    verbosity > 0 && println(" - Dataset has $(size(X_train, 1)) training samples.")
+    verbosity > 0 && println("Slicing MPS into individual states...")
+    mpss, label_idx = expand_label_index(mps)
+    num_classes = length(mpss)
+    verbosity > 0 && println(" - $num_classes class(es) were detected.")
+
+    if opts.encoding.istimedependent
+        verbosity > 0 && println(" - Time dependent encoding - $(opts.encoding.name) - detected")
+        verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max), aux_basis_dim = $(opts.aux_basis_dim)")
+    else
+        verbosity > 0 && println(" - Time independent encoding - $(opts.encoding.name) - detected.")
+        verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max)")
+    end
+
+    enc_args = get_enc_args_from_opts(opts, X_train, y_train; verbosity=verbosity)
+    xvals=collect(range(guess_range...; step=dx))
+    site_index=Index(opts.d)
+    if opts.encoding.istimedependent
+        verbosity > -1 && println("Pre-computing possible encoded values of x_t, this may take a while... ")
+        # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
+        if static_xvecs
+            xvals_enc = [[SVector{opts.d}(get_state(x, opts, j, enc_args)) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
+        else
+            xvals_enc = [[(x, opts, j, enc_args) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
+        end
+    else
+        if static_xvecs
+            xvals_enc_single = [SVector{opts.d}(get_state(x, opts, 1, enc_args)) for x in xvals]
+        else
+            xvals_enc_single = [get_state(x, opts, 1, enc_args) for x in xvals]
+        end
+        xvals_enc = [view(xvals_enc_single, :) for _ in 1:length(mps)]
+    end
+    x_guess_range = EncodedDataRange(dx, guess_range, xvals, site_index, xvals_enc)
+    mpss, l_ind = expand_label_index(mps)
+    classes_unique = sort(unique(y_train))
+    class_map = Dict{Int, Any}()
+    for (i, class) in enumerate(classes_unique)
+        class_map[class] = i
+    end
+    synth_prob = SynthGenProblem(mpss, X_train, y_train, opts, enc_args, x_guess_range, class_map)
+
+    verbosity > 0 && println("\n Created $num_classes SynthGenProblem struct(s).")
+
+    return synth_prob
+
+end
+
+"""
+    init_synthgen_problem(W::TrainedMPS, X_train::AbstractMatrix, y_train::AbstractArray=zeros(Int, size(X_train,1)), [custom_encoding::MPSTime.Encoding]; <keyword arguments>) -> synth::SynthGenProblem
+    init_synthgen_problem(W::TrainedMPS, X_train::AbstractMatrix, [custom_encoding::MPSTime.Encoding]; <keyword arguments>) -> synth::SynthGenProblem
+
+Initialise a synthetic data generation problem using a trained MPS and relevant training data.
+
+This function performs necessary pre-computation for efficient synthetic data generation, including encoding and scaling. For unlabelled/unsupervised data, `y_train` may be omitted. If the MPS was trained with a custom encoding, this encoding must be passed to `init_synthgen_problem`.
+
+# Keyword Arguments
+- `guess_range::Union{Nothing, Tuple{<:Real,<:Real}}=nothing`: The range of values that generated samples are allowed to take, applied to normalised, encoding-adjusted time-series data. To allow any value, leave as `nothing`, or set to `encoding.range` (e.g., `(-1., 1.)` for Legendre encoding).
+- `dx::Float64 = 1e-4`: The spacing between possible guesses in normalised, encoding-adjusted units. Generated values will be selected from `range(guess_range...; step=dx)`.
+- `verbosity::Integer=1`: The verbosity of the initialisation process. Set to -1 to suppress output.
+- `test_encoding::Bool=true`: Whether to double-check the encoding and scaling options. Strongly recommended, but can be disabled for performance.
+- `static_xvecs::Bool=true`: Whether to store encoded x-values as StaticVectors. Usually improves performance.
+
+# Returns
+- `synth::SynthGenProblem`: A struct containing all information required for synthetic data generation with a trained MPS.
+
+See also: [`MPS_generate`](@ref)
+"""
+function init_synthgen_problem(
+    mps::TrainedMPS,
+    X_test::AbstractMatrix, 
+    y_test::AbstractVector=zeros(Int, size(X_test,1)), 
+    custom_encoding::Union{Encoding, Nothing}=nothing; 
+    test_encoding::Bool=true, 
+    kwargs...)
+
+    X_train = mps.train_data.original_data
+    y_train = [ts.label for ts in mps.train_data.timeseries]
+    opts = mps.opts
+    opts_concrete = safe_options(opts) # make sure options isnt abstract
+
+    if !isnothing(custom_encoding)
+        if !(opts.encoding in [:custom, :Custom])
+            throw(ArgumentError("To impute with a custom encoding, the MPS must have been trained with a custom encoding. See the details of the \'encoding = :Custom\' setting in MPSOptions"))
+        else
+            opts_concrete = _set_options(opts_concrete; encoding=custom_encoding)
+        end
+    end
+    # test that nothing has gone wrong with the encoding
+    if test_encoding
+        X_train_scaled, norms = transform_train_data(permutedims(X_train); opts=opts_concrete)
+
+        classes = unique(vcat(y_train))
+        num_classes = length(classes)
+
+        sort!(classes)
+        class_keys = Dict(zip(classes, 1:num_classes)) # why did I write encode_dataset in this way? (#TODO move the definition of of class_keys inside encode_dataset)
+                                                       # TODO TODO use scientific types to avoid the problem entirely
+    
+        s = EncodeSeparate{opts.encode_classes_separately}()
+        sites = get_siteinds(mps.mps)
+        training_states, enc_args_tr = encode_dataset(s, X_train, X_train_scaled, y_train, "train", sites; opts=opts_concrete, class_keys=class_keys)     
+        if !isapprox(training_states, mps.train_data)
+
+            if isnothing(custom_encoding)
+                error("Could not reproduce the encoded training set from the TrainedMPS. This should never happen, has there been some data corruption?")
+            else
+                error("Could not reproduce the encoded training set from the TrainedMPS, double check that custom_encoding matches the encoding the MPS was trained with. Otherwise, this should never happen, has there been some data corruption?")
+            end
+        end
+    end
+
+    return init_synthgen_problem(mps.mps, X_train, y_train, opts_concrete; kwargs...)
 
 end
 
@@ -409,7 +554,80 @@ function get_predictions(
     return ts, pred_err, target
 end
 
+"""
+```julia
+MPS_generate(
+    synth::SynthGenProblem;
+    class::Int=0,
+    seed::Union{Int,Nothing}=nothing,
+    num_trajectories::Int=1,
+    inverse_transform::Bool=true,
+    rejection_threshold::Float64=2.0,
+    max_trials::Int=10
+) -> ts::Vector
+```
+Generate synthetic time-series trajectories by sequentially sampling from the joint distribution encoded by a trained MPS.
 
+Returns a vector of generated time-series trajectories. Each trajectory is sampled from the learned joint distribution (or class-conditional distribution if `class` is specified). The number of generated trajectories is controlled by `num_trajectories`.
+
+See [`init_synthgen_problem`](@ref) for constructing a `SynthGenProblem` instance from a trained MPS.
+
+# Keyword Arguments
+- `class::Int=0`: The class label for which to generate synthetic data. Use 0 for unlabelled data (single-class).
+- `seed::Union{Int,Nothing}=nothing`: Random seed for reproducibility. If `nothing`, a random seed is used.
+- `num_trajectories::Int=1`: Number of synthetic trajectories to generate.
+- `inverse_transform::Bool=true`: Whether to transform the generated data back to the original data domain.
+- `rejection_threshold::Float64=2.0`: Number of WMADs allowed between adjacent points. Lower values suppress rapidly varying trajectories.
+- `max_trials::Int=10`: Maximum number of attempts to generate a trajectory conforming to `rejection_threshold` before giving up.
+
+# Returns
+- `ts::Vector`: A vector of generated synthetic time-series trajectories.
+
+See also: [`init_synthgen_problem`](@ref)
+"""
+function MPS_generate(
+    synth::SynthGenProblem;
+    class::Int=0,
+    seed::Union{Int,Nothing}=nothing,
+    num_trajectories::Int=1,
+    inverse_transform::Bool=true,
+    rejection_threshold::Float64=2.0,
+    max_trials::Int=10)
+
+    X_train = synth.X_train
+    if class < 0 || class > (length(synth.mpss) - 1)
+    max_class = length(synth.mpss) - 1
+    # usual pre-checks
+    valid_range = if max_class == 0 "only 0" else "0 to $max_class" end
+        throw(ArgumentError(
+            "Invalid class index: $class. " *
+            "Class must be $valid_range (zero-based indexing). " *
+            "$(length(synth.mpss)) class(es) available."
+        ))
+    end
+    # use a random seed if nothing is specified by the user
+    actual_seed = seed === nothing ? rand(UInt32) : seed
+    mps = synth.mpss[synth.class_map[class]]
+    target_timeseries = zeros(size(X_train, 2)) # dummy/filler time series 
+
+    _, norms = transform_train_data(X_train; opts=synth.opts)
+    missing_sites = collect(1:length(target_timeseries)) # ALL SITES ARE MISSING - DO NOT USE ANY INFORMATION FROM THE TARGET TIME SERIES APART FROM ITS LENGTH
+    target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=synth.opts)
+
+    # use the same impute function, but this time, all sites are imputed and the pre-conditioning step is skipped
+    ts = impute_ITS(mps, synth.opts, synth.x_guess_range, synth.enc_args, target_timeseries, MPS(), missing_sites; impute_order=:forwards, rseed=actual_seed, 
+        rejection_threshold=rejection_threshold, max_trials=max_trials, num_trajectories=num_trajectories)
+    
+    # map back to the original data domain if specified
+    if inverse_transform
+        for i in eachindex(ts)
+            ts[i] = invert_test_transform(ts[i], oob_rescales, norms; opts=synth.opts)
+        end
+    end
+
+    return ts
+
+end
 
 """
 ```Julia

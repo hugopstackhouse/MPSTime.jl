@@ -159,6 +159,10 @@ export
     MPS_impute, # The main imputation function, all functionality can be accessed hyperparameter
     get_cdfs, # compute the reduced density matrix (as a cdf) at every site. Useful for data vis/debugging weird imputations
     ImputationProblem,
+    init_synthgen_problem, # generate and collect data necessary for synthetic data generation
+    SynthGenProblem, # Similar to ImputationProblem, but only containing fields necessary for synth data gen
+    MPS_generate, # the main synth data generation function
+
 
     # Simulation
     mcar, # simulate missing completely at random mechanism for imputation
