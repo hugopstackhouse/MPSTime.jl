@@ -21,7 +21,7 @@ To obtain the marginal distribution $p(x_1)$, the remaining $T-1$ sites of the M
 The cumulative distribution function, $F_i(x)$ is then evaluated as:
 
 ```math
-F_i(x) = \frac{1}{Z} \int_a^{x} \phi^{\dagger}(x')\rho_i \phi_i(x')dx',,
+F_i(x) = \frac{1}{Z} \int_a^{x} \phi^{\dagger}(x')\rho_i \phi_i(x')dx',
 ```
 
 where $Z$ is chosen so that $F_{s_i}(b) = 1$, $a$ is the lower bound on the support of the encoding domain $[a,b]$, $\rho_i$ is the RDM at site $i$ and $\phi_i$ is the feature map (e.g., Legendre, Fourier, etc.) at site $i$. 
