@@ -1,7 +1,7 @@
 name = "MPSTime"
 uuid = "add04bee-8693-446b-8579-2d5929eca8f6"
 authors = ["Joshua Moore <joshua.moore@sydney.edu.au", "Hugo Stackhouse <hugo.stackhouse@sydney.edu.au>"]
-version = "0.2.0-DEV"
+version = "0.2.0"
 
 [deps]
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
