@@ -37,7 +37,7 @@ makedocs(
     ],
     # debug options
     # pagesonly = true, # dont compile unlisted pages
-    clean=false,
+    # clean=true,
     # checkdocs = :none,
     # draft=true
     

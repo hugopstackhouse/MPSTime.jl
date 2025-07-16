@@ -95,7 +95,7 @@ Creates `nfold`-fold stratified cross validation train/validation splits for hyp
 julia> train_indices_fold_i, validation_indices_fold_i = folds[i];
 
 ```
-Uses MLJs [`StratifiedCV`](@ref MLJBase.StratifiedCV) method. 
+Uses MLJ's `StratifiedCV` method (https://juliaai.github.io/MLJBase.jl/stable/resampling/#MLJBase.StratifiedCV).  
 
 """
 function make_stratified_cvfolds(Xs::AbstractMatrix, ys::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)
