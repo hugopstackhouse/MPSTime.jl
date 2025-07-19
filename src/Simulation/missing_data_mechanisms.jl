@@ -27,7 +27,7 @@ end
 
 
 """
-```Julia
+```julia
 mcar(
     X::AbstractVector, 
     fraction_missing::Float64, 
@@ -85,7 +85,7 @@ function _mcar_sample(X::AbstractVector, fraction_missing::Float64, rng::Abstrac
 end
 
 """
-```Julia
+```julia
 mar(
     X::AbstractVector, 
     fraction_missing::Float64, 

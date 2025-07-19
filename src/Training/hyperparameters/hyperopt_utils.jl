@@ -6,7 +6,7 @@ struct BalancedMisclassificationRate <: ClassificationLoss end
 struct ImputationLoss <: TuningLoss end 
 
 """
-```Julia
+```julia
     MPSRandomSearch(sampling::Symbol=:LatinHypercube)
 ```
 Value type used to specify a random search algorithm for [`hyperparameter tuning`](@ref MPSTime.tune) an MPS. 
@@ -130,7 +130,7 @@ function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{
     end
 end
 """
-```Julia
+```julia
 eval_loss(
     ::TuningLoss, 
     mps::TrainedMPS, 

@@ -12,20 +12,16 @@ It provides a unified formalism for:
 - Univariate time-series imputation (inferring missing points within time-series instances) across fixed-length time series.
 - Synthetic data generation (coming soon).
 
-!!! info "Info"
-    MPSTime is currently under active development. Many features are in an experimental stage and may undergo significant changes, refinements, or removals.
-
 ## Installation
-This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from our [GitHub repository](https://github.com/hugopstackhouse/MPSTime.jl.git):
+MPSTime can be installed using the Julia package manager:
 
-```Julia
+```julia
 julia> ]
-pkg> add https://github.com/hugopstackhouse/MPSTime.jl.git
+pkg> add MPSTime
 ```
 
 ## Usage
 See the sidebars for basic usage examples. 
-We're continually adding more features and documentation as we go.
 
 ## Citation
 If you use MPSTime in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):

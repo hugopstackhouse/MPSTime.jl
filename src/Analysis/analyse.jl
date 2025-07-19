@@ -1,5 +1,5 @@
 """
-```Julia
+```julia
 von_neumann_entropy(mps::MPS; logfn::Function=log) -> Vector{Float64}
 ```
 Compute the [von Neumann entanglement entropy](https://en.wikipedia.org/wiki/Entropy_of_entanglement) for each site in a Matrix Product State (MPS).
@@ -45,7 +45,7 @@ function von_neumann_entropy(mps::MPS, logfn::Function=log)
 end
 
 """
-```Julia
+```julia
 bipartite_spectrum(mps::TrainedMPS; logfn::Function=log) -> Vector{Vector{Float64}}
 ```
 Compute the bipartite entanglement entropy (BEE) of a trained MPS across each bond.
@@ -91,7 +91,7 @@ function rho_correct(rho::Matrix, eigentol::Float64=sqrt(eps()))
 end
 
 """
-```Julia
+```julia
 one_site_rdm(mps::MPS, site::Int) -> Matrix
 ```
 Compute the single-site reduced density matrix (RDM) of the 
@@ -120,7 +120,7 @@ function single_site_entropy(mps::MPS)
 end
 
 """
-```Julia
+```julia
 single_site_spectrum(mps::TrainedMPS) -> Vector{Vector{Float64}}
 ```
 Compute the single-site entanglement entropy (SEE) spectrum of a trained MPS.
@@ -149,7 +149,7 @@ function single_site_spectrum(mps::TrainedMPS)
 end
 
 """
-```Julia
+```julia
 see_variation(mps::TrainedMPS, measure_series::Matrix, class::Int=0) -> Array{Float64, 3}
 ```
 Compute the variation in single-site entanglement entropy for each site N in the MPS, 

@@ -343,7 +343,7 @@ end
 
 
 """
-```Julia
+```julia
 kNN_impute(
     imp::ImputationProblem, 
     [class::Any,] 
@@ -630,7 +630,7 @@ function MPS_generate(
 end
 
 """
-```Julia
+```julia
 MPS_impute(
     imp::ImputationProblem, 
     [class::Any,] 
@@ -782,7 +782,7 @@ end
 
 
 """
-```Julia
+```julia
 get_cdfs(imp::ImputationProblem, 
            class::Any, 
            instance::Integer, 

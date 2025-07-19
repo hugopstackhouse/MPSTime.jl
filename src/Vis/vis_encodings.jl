@@ -120,7 +120,7 @@ function plot_encoding(
 end
 
 """
-```Julia
+```julia
 plot_encoding(E::Union(Symbol, MPSTime.Encoding), 
               d::Integer, 
               X_train::Matrix{Float64}=zeros(0,0), 

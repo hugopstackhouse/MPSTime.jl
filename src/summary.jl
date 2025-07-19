@@ -136,7 +136,7 @@ function classify(mps::TrainedMPS, test_states::EncodedTimeSeriesSet)
 end
 
 """
-```Julia
+```julia
 classify(mps::TrainedMPS, X_test::AbstractMatrix)) -> (predictions::Vector)
 ```
 Use the `mps` to predict the class of the rows of `X_test` by computing the maximum overlap.
@@ -355,7 +355,7 @@ function get_training_summary(
 end
 
 """
-```Julia
+```julia
 get_training_summary(
     [io::IO],
     mps::TrainedMPS, 
@@ -371,7 +371,7 @@ get_training_summary(mps::TrainedMPS, X_test::EncodedTimeSeriesSet;  print_stats
 
 
 """
-```Julia
+```julia
 sweep_summary([io::IO], info)
 ```
 Print a pretty summary of what happened in every sweep

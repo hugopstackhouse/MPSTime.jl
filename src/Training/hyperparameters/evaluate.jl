@@ -1,5 +1,5 @@
 """
-```Julia
+```julia
 function evaluate(
     Xs::AbstractMatrix, 
     [ys::AbstractVector], 

@@ -13,7 +13,7 @@
   <a href="https://hugopstackhouse.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?" alt="docs - latest">
   </a>
-    <img src="https://img.shields.io/badge/version-0.2.0--DEV-blue?" alt="version - 0.2.0-DEV">
+    <img src="https://img.shields.io/badge/version-0.2.0-blue?" alt="version - 0.2.0-DEV">
   </a>
     <img src="https://github.com/hugopstackhouse/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
   </a>
@@ -25,11 +25,11 @@ __MPSTime__ is a Julia package for learning the joint probability distribution o
 It provides a unified formalism for classifying unseen data, as well as imputing gaps in time-series data, which regularly occur in real-world datasets due to sensor failure, routine maintenance, or other problems.
 
 ## Installation
-This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from github:
+MPSTime can be installed using the Julia package manager:
 
-```Julia
+```julia
 julia> ]
-pkg> add https://github.com/hugopstackhouse/MPSTime.jl.git
+pkg> add MPSTime
 ```
 
 ## Usage and Documentation
@@ -52,6 +52,6 @@ If you use this software in your work, please read and cite the [arXiv preprint]
 
 ## Contributing to MPSTime
 We welcome contributions from the community! 
-MPSTime is under active development and resarch, making it an exciting opprtunity for collaboration.
+MPSTime is under active development and research, making it an exciting opportunity for collaboration.
 Whether you are interested in adding new features, improving existing documentation, fixing bugs, or sharing ideas, your input is valuable.
 Feel free to submit a [PR](https://github.com/hugopstackhouse/MPSTime.jl/pulls) or open an [issue](https://github.com/hugopstackhouse/MPSTime.jl/issues) for discussion.

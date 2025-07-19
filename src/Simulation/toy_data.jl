@@ -12,7 +12,7 @@ function _generate_params(param, default_range, rng::AbstractRNG)
 end
 
 """
-```Julia
+```julia
 trendy_sine(T::Int, n::Int; period=nothing, slope=nothing, phase=nothing, sigma=0.0, 
     rng=Random.GLOBAL_RNG, return_metadata=true) -> Tuple{Matrix{Float64}, Dict{Symbol, Any}}
 ```

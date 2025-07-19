@@ -251,7 +251,7 @@ end
 
 
 """
-```Julia
+```julia
 fitMPS(X_train::AbstractMatrix, 
        y_train::AbstractVector=zeros(Int, size(X_train, 1)), 
        X_test::AbstractMatrix=zeros(0,0), 
@@ -585,7 +585,7 @@ end
 
 
 function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions=MPSOptions(); test_run=false) # optimise bond tensor)
-     opts = safe_options(opts) # make sure options is abstract
+    opts = safe_options(opts) # make sure options is abstract
 
 
     verbosity = opts.verbosity

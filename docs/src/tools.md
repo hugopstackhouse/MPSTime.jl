@@ -44,7 +44,7 @@ The BEE can be represented schematically using the 1D spin chain analogy where t
 ### Bipartite Entanglement Entropy (BEE)
 Given a trained MPS (for either classification or imputation), we can compute the bipartite entanglement entropy (BEE) using
 the [`bipartite_spectrum`](@ref) function:
-```Julia
+```julia
 # train the MPS as usual
 mps, _, _ = fitMPS(...);
 bees = bipartite_spectrum(mps);
@@ -56,7 +56,7 @@ For an unsupervised problem with only a single class, there is only a single BEE
 To illustrate how we might use the BEE in a typical analysis, consider an example involving real world time series from the [ItalyPowerDemand](https://www.timeseriesclassification.com/description.php?Dataset=ItalyPowerDemand) (IPD) UCR dataset. 
 There are two classes corresponding to the power demand during: (i) the winter months; (ii) the summer months. 
 For this example, we will train an MPS to classify between summer and winter time-series data:
-```Julia
+```julia
 # load in the training data
 using JLD2
 ipd_load = jldopen("ipd_original.jld2", "r");
@@ -72,7 +72,7 @@ Let's take a look at the training dataset for this problem:
 
 ![](./figures/tools/ipd_dataset.svg)
 Using the trained MPS, we can then inspect the BEE for the class 0 (winter) and class 1 (summer) MPS individually:
-```Julia
+```julia
 bees = bipartite_spectrum(mps);
 bee0, bee1 = bees
 b1 = bar(bee0, title="Winter", label="", c=palette(:tab10)[1], xlabel="site", ylabel="entanglement entropy");
@@ -83,7 +83,7 @@ p = plot(b1, b2)
 
 ### Single-Site Entanglement Entropy (SEE)
 Given a trained MPS, we can also compute the single-site entanglement entropy (SEE) using the [`single_site_spectrum`](@ref) function:
-```Julia
+```julia
 # train MPS as usual
 mps, _, _ = fitMPS(...);
 sees = MPSTime.single_site_spectrum(mps);
@@ -91,7 +91,7 @@ sees = MPSTime.single_site_spectrum(mps);
 As with the BEE, a vector is returned where each entry contains the SEE spectrum for the class-specific MPS. 
 #### Example
 Continuing our example from the BEE with the ItalyPowerDemand (IPD) dataset, we will now compute the single-site entanglement entropy (SEE) spectrum:
-```Julia
+```julia
 sees = single_site_spectrum(mps);
 see0, see1 = sees
 b1 = bar(see0, title="Winter", label="", c=palette(:tab10)[1], xlabel="site", ylabel="SEE");
@@ -104,7 +104,7 @@ p = plot(b1, b2)
 Another quantity we can compute is the single-site entanglement entropy (SEE) variation.
 In effect, the SEE variation captures the change in SEE at any given MPS site, conditional upon having measured the preceding sites.
 Given a trained MPS, the SEE variation can be computed:
-```Julia
+```julia
 # see_variation expects a data matrix, so we need to index as follows to feed in a single instance
 see_variation = see_variation(mps, X_test[1:1, :])
 # if there is more than one class (e.g., classification)
@@ -113,7 +113,7 @@ see_variation_c1 = see_variation(mps, X_test[1:1, :], 1)
 ```
 It can be useful to visualize the SEE variation as a barplot. 
 Here we will plot the SEE of the unmeasured MPS, after measuring 5 sites (i.e., 5 time pts.), 20 sites, and 50 sites: 
-```Julia
+```julia
 cpal = palette(:tab10)
 see_variation = see_variation(mps, X_test[1:1, :])
 b = bar(see_variation[1, 1, :], c=cpal[1], label="Unmeasured", xlabel="site", ylabel="SEE")
@@ -134,7 +134,7 @@ To generate synthetic missing data, the original (uncorrupted) univariate time-s
 ### Missing Completely at Random (MCAR)
 To simulate missing completely at random (MCAR) data, the locations (time points) of missing points are sampled from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution) where the probability of a "successful trial" (i.e., missing data point) is the same for all time points.
 Let's generate a random time-series instance and simulate 50% data missingness using an MCAR mechanism:
-```Julia 
+```julia 
 using MPSTime
 using Random
 Random.seed!(42)
@@ -144,7 +144,7 @@ X_corrupted, X_missing_inds = mcar(X_clean, pm)
 ```
 The `mcar` function will return two values: a copy of the time-series with NaN values at missing positions (`X_corrupted`), and the indices of the missing values (`X_missing_inds`).
 Let's plot the corrupted data:
-```Julia
+```julia
 using Plots
 p1 = plot(X_clean, xlabel="time", ylabel="x", label="", title="Original data");
 p2 = plot(X_corrupted, xlabel="time", ylabel="x", label="", title="MCAR $(pm*100)% missing data");
@@ -153,7 +153,7 @@ plot(p1, p2, size=(1200, 300));
 ![](./figures/tools/mcar_example.svg)
 
 For reproducibility, we can optionally pass in a random seed to the `mcar` function:
-```Julia
+```julia
 seed = 42; # random seed 
 X_corrupted, X_missing_inds = mcar(X_clean, pm; state=seed)
 ```
@@ -161,7 +161,7 @@ X_corrupted, X_missing_inds = mcar(X_clean, pm; state=seed)
 ### Missing at Random (MAR)
 Following from the example above with randomly generated data, we can simulate a missing at random (MAR) mechanism using the `mar` function.
 Currently, MPSTime supports block missing patterns whereby a starting time point is randomly selected, and all subsequent observations within a specified block length are set to NaN:
-```Julia
+```julia
 # using the same data, X_clean, from above...
 pm = 0.5
 X_corrupted, X_missing_inds = mar(X_clean, pm)
@@ -178,7 +178,7 @@ There are two possible options for the MNAR mechanims: (i) LowestMNAR (default o
 The LowestMNAR mechanism sets the lowest N values of the time-series to NaN where N is determined by the target percentage data missing. 
 Conversely, HighestMNAR sets the highest N value to NaN:
 
-```Julia
+```julia
 # using the same data, X_clean, from above...
 pm = 0.5
 X_corrupted_low, X_missing_inds_low = mnar(X_clean, pm) # default setting uses LowestMNAR
