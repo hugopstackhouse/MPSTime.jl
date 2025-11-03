@@ -37,17 +37,21 @@ We provide [tutorials](https://hugopstackhouse.github.io/MPSTime.jl/dev/classifi
 - [LATEST DOCS](https://hugopstackhouse.github.io/MPSTime.jl/) -- the latest documentation.
 
 ## Citation
-If you use this software in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):
+If you use this software in your work, please read and cite the [published paper](https://journals.aps.org/prresearch/abstract/10.1103/61h8-8qr5):
 ```
-@misc{MPSTime2024,
-      title={Using matrix-product states for time-series machine learning}, 
-      author={Joshua B. Moore and Hugo P. Stackhouse and Ben D. Fulcher and Sahand Mahmoodian},
-      year={2024},
-      eprint={2412.15826},
-      archivePrefix={arXiv},
-      primaryClass={stat.ML},
-      url={https://arxiv.org/abs/2412.15826}, 
-}
+@misc{MPSTime2025,
+  title = {Using matrix-product states for time-series machine learning},
+  author = {Moore, Joshua B. and Stackhouse, Hugo P. and Fulcher, Ben D. and Mahmoodian, Sahand},
+  journal = {Phys. Rev. Res.},
+  volume = {7},
+  issue = {4},
+  pages = {043010},
+  numpages = {31},
+  year = {2025},
+  month = {Oct},
+  publisher = {American Physical Society},
+  doi = {10.1103/61h8-8qr5},
+  url = {https://link.aps.org/doi/10.1103/61h8-8qr5}}
 ```
 
 ## Contributing to MPSTime
