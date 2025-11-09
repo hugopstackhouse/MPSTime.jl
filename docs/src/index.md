@@ -24,7 +24,7 @@ pkg> add MPSTime
 See the sidebars for basic usage examples. 
 
 ## Citation
-If you use MPSTime in your work, please read and cite the [published paper]([https://arxiv.org/abs/2412.15826](https://journals.aps.org/prresearch/abstract/10.1103/61h8-8qr5)):
+If you use MPSTime in your work, please read and cite the [published paper](https://journals.aps.org/prresearch/abstract/10.1103/61h8-8qr5):
 ```
 @misc{MPSTime2025,
   title = {Using matrix-product states for time-series machine learning},
