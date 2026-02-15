@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Moore"
+  given-names: "Joshua B."
+  orcid: "https://orcid.org/0000-0002-5237-1087"
+- family-names: "Stackhouse"
+  given-names: "Hugo P."
+  orcid: "https://orcid.org/0009-0001-4579-3417"
+title: "MPSTime.jl"
+version: 0.2.0
+doi: 10.5281/zenodo.15381027
+date-released: 2025-05-10
+url: "https://github.com/hugopstackhouse/MPSTime.jl"
