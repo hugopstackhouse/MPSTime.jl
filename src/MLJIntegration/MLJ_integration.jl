@@ -31,7 +31,7 @@ end
 
 function MMI.fit(m::MPSClassifier, verbosity::Int, X, y, decode)
     opts = MPSOptions(m; verbosity=verbosity)
-    _,_,enc_opt = Options(MPSOptions(m; verbosity=m.reformat_verbosity))
+    enc_opt = Options(MPSOptions(m; verbosity=m.reformat_verbosity))
 
     if enc_opt.train_classes_separately || enc_opt.encode_classes_separately
         # ensure both at once, makes hyperparam optimisation easier
@@ -46,8 +46,7 @@ function MMI.fit(m::MPSClassifier, verbosity::Int, X, y, decode)
 
 
     X_enc = encoderows(enc_opt, X, y) # I would love to use MMI.reformat for this but I the sigmoid transform depends on the choice of samples in selectrows and that isn't called for predict
-    @show eltype(y)
-    W, info, _, _ = fitMPS(X_enc, EncodedTimeSeriesSet(eltype(y)), opts)
+    W, info, _ = fitMPS(X_enc, EncodedTimeSeriesSet(eltype(y)), opts)
     cache = nothing
     report = (info = info,)
     return ((decode, enc_opt, W), cache, report)
@@ -55,9 +54,9 @@ end
 
 function MMI.predict(::MPSClassifier, fitresult, Xnew)
     decode, enc_opt, W = fitresult
-    Xnew_enc = encoderows(get_siteinds(W), enc_opt, Xnew)
+    Xnew_enc = encoderows(get_siteinds(W.mps), enc_opt, Xnew)
 
-    yhat = MPSpredict(W, Xnew_enc)
+    yhat = classify(W, Xnew_enc) # maps the argmax back to the training class labels
     return decode.(yhat)
 end
 

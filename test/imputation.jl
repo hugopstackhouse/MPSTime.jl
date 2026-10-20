@@ -31,7 +31,7 @@ _,_,_, stats_pm80, plots_pm80 = MPS_impute(
 )
 
 # we don't want to be _that_ precise here becase the fperror can really add up depending on what architecture this is running on
-@test isapprox(stats_pm80[1][:MAPE], 0.3830051169633825; rtol=imp_rtol)
+@test isapprox(stats_pm80[1][:MAPE], 0.3803551671899099; rtol=imp_rtol)
 @test isapprox(stats_pm80[1][:NN_MAPE], 0.5319691385738694; rtol=imp_rtol)
 
 pm = 0.2 # a quick version
@@ -43,12 +43,14 @@ imp_methods = [:median, :mean, :mode, :ITS, :kNearestNeighbour]
 nc1s = sum(y_test)
 ncs = [length(y_test) - nc1s, nc1s]
 
+# Regenerated (2026-10) after fixing the conditional pdf, which had used phi' rho^2 phi instead of phi' rho phi.
+# These are regression values only: the conditional pdf itself is checked against a brute-force calculation in maths_tests.jl
 expected_maes = [
-    0.36581457566749176 0.2204382247157053;
-    0.17783806685365627 0.1876692173707628;
-    0.33536170154856404 0.3271278413457546;
-    0.7649367656713248 0.8727296222420307;
-    0.3877101919863158 0.2120027330331579;
+    0.36484061559391767 0.21883743245417991;
+    0.18139786370715366 0.18636482780540356;
+    0.38781967691078967 0.3684756404848243;
+    0.7920556985373146 0.8910711448288063;
+    0.3877101919863158 0.21200273303315784;
 ]
 # maes BigFloat-256
 # 5×2 Matrix{Float64}:
