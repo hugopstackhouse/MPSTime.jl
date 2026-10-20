@@ -19,6 +19,60 @@ function site_encoder(encoding, d; aux_basis_dim=2, projected_basis=false, X_nor
     return f, enc.range, args
 end
 
+@testset "Encodings are orthonormal" begin
+    # skewed (log-normal) and smooth (normal) data mapped to [-1, 1], time points as rows, 400 series as columns
+    X_norm = let Z = exp.(randn(Xoshiro(42), 3, 400))
+        2 .* (Z .- minimum(Z)) ./ (maximum(Z) - minimum(Z)) .- 1
+    end
+    X_smooth = let Z = 0.6 .* randn(Xoshiro(5), 4, 400)
+        2 .* (Z .- minimum(Z)) ./ (maximum(Z) - minimum(Z)) .- 1
+    end
+
+    # orthonormal bases: G = I
+    f, (a, b), _ = site_encoder(:Legendre, 6)
+    @test gram(f, a, b) ≈ I atol=1e-8
+
+    for ti in 1:2
+        f, (a, b), _ = site_encoder(:Legendre, 4; projected_basis=true, X_norm=X_smooth, ti=ti)
+        @test gram(f, a, b) ≈ I atol=1e-8
+    end
+
+    # split bases: each bin's auxiliary basis must be orthonormal on that bin
+    f, (a, b), args = site_encoder(uniform_split(:legendre), 6; aux_basis_dim=3)
+    bins = args[2][1]
+    @test gram(f, a, b; pts=bins[2:end-1]) ≈ I atol=1e-8
+
+    for ti in 1:3
+        f, (a, b), args = site_encoder(histogram_split(:legendre), 6; aux_basis_dim=3, X_norm=X_norm, ti=ti)
+        bins = args[2][1][ti]
+        @test !allequal(diff(bins)) # the histogram bins have unequal widths for skewed data
+        @test gram(f, a, b; pts=bins[2:end-1]) ≈ I atol=1e-8
+    end
+
+    f, (a, b), args = site_encoder(histogram_split(:uniform), 4; aux_basis_dim=1, X_norm=(X_norm .+ 1) ./ 2)
+    bins = args[2][1][1]
+    @test gram(x -> Float64.(f(x)), a, b; pts=bins[2:end-1]) ≈ I atol=1e-8
+
+    # data-driven Sahand-Legendre bases (orthonormalised by trapezoidal quadrature on a 200-point grid, so only
+    # approximately orthonormal, and less so for sharply peaked densities: use smooth data here)
+    for enc in [:SLTD, :SL]
+        f, (a, b), _ = site_encoder(enc, 4; X_norm=X_smooth)
+        G = gram(f, a, b)
+        @test all(isfinite, G)
+        @test G ≈ I atol=1e-2
+    end
+
+    # bases that are orthogonal with a constant norm: G = c * I. A constant c rescales the density
+    # by c^T but leaves the KLD gradients, the classifications, and the normalised conditionals unchanged
+    for (enc, d) in [(:Legendre_Norm, 5), (:Fourier, 5), (:Stoudenmire, 2)]
+        f, (a, b), _ = site_encoder(enc, d)
+        G = gram(f, a, b)
+        c = real(G[1, 1])
+        @test c > 0
+        @test G ≈ c * I atol=1e-8
+    end
+end
+
 
 @testset "Conditional pdf matches a brute-force dense wavefunction" begin
     T, d, chi = 5, 3, 3
