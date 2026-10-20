@@ -602,6 +602,11 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     #     @show blas_name
     # end
 
+    # the caches and loss functions of this trainer only support real-valued MPSs and encodings
+    if opts.encoding.iscomplex || !(opts.dtype <: Real)
+        throw(ArgumentError("The default trainer only supports real-valued encodings and MPSs, but got encoding=$(opts.encoding.name) and dtype=$(opts.dtype). Set 'use_legacy_ITensor=true' in MPSOptions to train with a complex-valued encoding or dtype."))
+    end
+
     # @unpack_Options opts # unpacks the attributes of opts into the local namespace
     tsep = TrainSeparate{opts.train_classes_separately}() # value type to determine training style
 

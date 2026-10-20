@@ -142,3 +142,21 @@ end
         @test ts_dynamic[1] ≈ ts[1] atol=1e-12
     end
 end
+
+
+@testset "Complex-valued encodings" begin
+    X = rand(Xoshiro(1), 12, 3)
+    y = rand(Xoshiro(2), 0:1, 12)
+    # the default trainer is real-valued only, and says so
+    for (enc, d) in [(:Fourier, 3), (:Stoudenmire, 2)]
+        opts = MPSOptions(; d=d, chi_max=3, nsweeps=1, encoding=enc, dtype=ComplexF64, verbosity=-10, log_level=0)
+        @test_throws ArgumentError fitMPS(X, y, opts)
+    end
+    opts = MPSOptions(; d=3, chi_max=3, nsweeps=1, dtype=ComplexF64, verbosity=-10, log_level=0)
+    @test_throws ArgumentError fitMPS(X, y, opts)
+
+    # the legacy ITensor trainer handles them
+    opts = MPSOptions(; d=3, chi_max=3, nsweeps=1, encoding=:Fourier, dtype=ComplexF64, verbosity=-10, log_level=0, use_legacy_ITensor=true)
+    tm, _, _ = fitMPS(X, y, opts)
+    @test length(classify(tm, X)) == size(X, 1)
+end
