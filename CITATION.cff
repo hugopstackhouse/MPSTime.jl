@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If you use this software, please cite the paper below."
 authors:
 - family-names: "Moore"
   given-names: "Joshua B."
@@ -12,3 +12,26 @@ version: 0.2.0
 doi: 10.5281/zenodo.15381027
 date-released: 2025-05-10
 url: "https://github.com/hugopstackhouse/MPSTime.jl"
+preferred-citation:
+  type: article
+  title: "Using matrix-product states for time-series machine learning"
+  authors:
+  - family-names: "Moore"
+    given-names: "Joshua B."
+    orcid: "https://orcid.org/0000-0002-5237-1087"
+  - family-names: "Stackhouse"
+    given-names: "Hugo P."
+    orcid: "https://orcid.org/0009-0001-4579-3417"
+  - family-names: "Fulcher"
+    given-names: "Ben D."
+    orcid: "https://orcid.org/0000-0002-3003-4055"
+  - family-names: "Mahmoodian"
+    given-names: "Sahand"
+    orcid: "https://orcid.org/0000-0003-1483-5482"
+  journal: "Physical Review Research"
+  volume: 7
+  issue: 4
+  start: "043010"
+  year: 2025
+  month: 10
+  doi: "10.1103/61h8-8qr5"
