@@ -126,7 +126,8 @@ function impute_at!(
 
     A = array(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
     d = size(A,1)
-    if eltype(x_guess_range.xvals_enc[1]) isa SVector || eltype(eltype(x_guess_range.xvals_enc[1])) isa SVector
+    # static rdm for speed when the encoded states are static; MMatrix can't hold non-isbits types such as BigFloat
+    if (eltype(x_guess_range.xvals_enc[1]) <: SVector || eltype(eltype(x_guess_range.xvals_enc[1])) <: SVector) && isbitstype(eltype(A))
         rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
     else
         rdm = zeros(eltype(A),d,d)
@@ -381,7 +382,8 @@ function impute_med_and_get_cdf!(
 
     A = array(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
     d = size(A,1)
-    if eltype(x_guess_range.xvals_enc[1]) isa SVector || eltype(eltype(x_guess_range.xvals_enc[1])) isa SVector
+    # static rdm for speed when the encoded states are static; MMatrix can't hold non-isbits types such as BigFloat
+    if (eltype(x_guess_range.xvals_enc[1]) <: SVector || eltype(eltype(x_guess_range.xvals_enc[1])) <: SVector) && isbitstype(eltype(A))
         rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
     else
         rdm = zeros(eltype(A),d,d)
