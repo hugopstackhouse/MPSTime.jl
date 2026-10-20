@@ -74,6 +74,77 @@ end
 end
 
 
+@testset "KLD loss and gradient match finite differences" begin
+    T, N, d, chi = 4, 10, 3, 3
+    X = randn(Xoshiro(1), N, T) .+ 0.3 .* (1:T)'
+    y = vcat(zeros(Int, 6), ones(Int, 4))
+    opts = MPSOptions(; d=d, chi_max=chi, nsweeps=1, verbosity=-10, log_level=0, sigmoid_transform=false)
+    tm, _, _ = fitMPS(X, y, opts)
+    W = deepcopy(tm.mps)
+    ets = tm.train_data
+    states = ets.timeseries
+    sites = MT.get_siteinds(W)
+    pos, label_idx = MT.find_label(W)
+    j = T - 1 # the label sits on the last site after a sweep, so the bond is (T-1, T)
+    @test pos == T
+
+    LE, RE = MT.construct_caches(W, states; going_left=true)
+    bt, bt_inds = MT.flatten_bt(W[j], W[j+1], label_idx, Float64; going_left=true)
+    tsep = MT.TrainSeparate{false}()
+    loss, grad = MT.loss_grad_KLD(tsep, bt, LE, RE, ets, j, j + 1)
+
+    # independent loss: contract the whole network for each series
+    function full_loss(b)
+        tens = [W[1:j-1]..., MT.unflatten_bt(b, bt_inds), W[j+2:end]...]
+        L = 0.0
+        for ps in states
+            res = ITensor(1.0)
+            for t in tens
+                res *= t
+            end
+            for (i, s) in enumerate(sites)
+                res *= itensor(conj(ps.pstate[i]), s)
+            end
+            L += -log(abs2(res[label_idx => Int(ps.label_index)]))
+        end
+        return L / length(states)
+    end
+    @test loss ≈ full_loss(bt) rtol=1e-10
+
+    # central differences; the code returns half of the gradient (the Wirtinger derivative), as in the paper
+    h = 1e-6
+    fd = similar(bt)
+    for i in eachindex(bt)
+        bp = copy(bt); bp[i] += h
+        bm = copy(bt); bm[i] -= h
+        fd[i] = (full_loss(bp) - full_loss(bm)) / (2h)
+    end
+    @test 2 .* grad ≈ fd rtol=1e-6
+end
+
+
+@testset "Learned density is normalised" begin
+    T, d = 3, 3
+    X = randn(Xoshiro(3), 40, T)
+    opts = MPSOptions(; d=d, chi_max=4, nsweeps=2, verbosity=-10, log_level=0, sigmoid_transform=false)
+    tm, _, _ = fitMPS(X, opts)
+    Ws, _ = MT.expand_label_index(tm.mps)
+    W = Ws[1]
+    s = MT.get_siteinds(W)
+    psi = ITensor(1.0)
+    for t in W
+        psi *= t
+    end
+    A = array(psi, s...)
+
+    # ∫ |W·Φ(x)|^2 dx over [-1,1]^T, with the Gram matrix of the encoding computed by quadrature
+    f, (a, b), _ = site_encoder(:Legendre, d)
+    G = real(gram(f, a, b))
+    Z = sum(A[i1, i2, i3] * A[k1, k2, k3] * G[i1, k1] * G[i2, k2] * G[i3, k3] for i1 in 1:d, i2 in 1:d, i3 in 1:d, k1 in 1:d, k2 in 1:d, k3 in 1:d)
+    @test Z ≈ 1 atol=1e-8
+end
+
+
 @testset "Conditional pdf matches a brute-force dense wavefunction" begin
     T, d, chi = 5, 3, 3
     rng = Xoshiro(7)
