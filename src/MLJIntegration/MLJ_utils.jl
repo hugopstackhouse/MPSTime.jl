@@ -34,16 +34,9 @@ function encoderows(sites::AbstractVector{<:Index{<:Integer}}, opts::Options, Xs
 
 
     s = EncodeSeparate{opts.encode_classes_separately}()
-    training_states, enc_args_tr = encode_dataset(s, Xs_scaled, ys, "train", sites; opts=opts, class_keys=class_keys)
+    training_states, enc_args_tr = encode_dataset(s, permutedims(Xs), Xs_scaled, ys, "train", sites; opts=opts, class_keys=class_keys)
     return training_states
 end
 
 encoderows(sites::AbstractVector{<:Index{<:Integer}}, opts::Options, Xs::AbstractMatrix) = encoderows(sites, opts, Xs, -ones(Int, size(Xs,2)))
 encoderows(opts::Options, Xs::AbstractMatrix, args...; kwargs...) = encoderows( siteinds(opts.d, size(Xs, 1)), opts, Xs, args...; kwargs...)
-
-function MPSpredict(W::MPS, X::EncodedTimeSeriesSet)
-    pss = X.timeseries
-    yhat::Vector{UInt} = [argmax(abs.(vector(contractMPS(W, ps)))) for ps in pss]
-
-    return yhat
-end

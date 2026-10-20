@@ -160,3 +160,23 @@ end
     tm, _, _ = fitMPS(X, y, opts)
     @test length(classify(tm, X)) == size(X, 1)
 end
+
+
+@testset "MLJ MPSClassifier" begin
+    MLJ = MT.MLJ
+    rng = Xoshiro(5)
+    T = 6
+    X = vcat(randn(rng, 15, T) .- 1, randn(rng, 15, T) .+ 1)
+    y = vcat(zeros(Int, 15), ones(Int, 15))
+    model = MPSClassifier(; d=3, chi_max=4, nsweeps=2, eta=0.1, exit_early=false)
+    mach = MLJ.machine(model, MLJ.table(X), MLJ.categorical(y))
+    MLJ.fit!(mach; verbosity=-1)
+    yhat = MLJ.predict(mach, MLJ.table(X))
+    @test length(yhat) == length(y)
+
+    # on the training set, the batch-refitted rescaling equals the training rescaling, so MLJ's predictions must
+    # agree with classify() on the fitted TrainedMPS
+    _, _, tm = mach.fitresult
+    @test MLJ.int(yhat) == classify(tm, X) # tm was trained on the integer codes of the levels
+    @test mean(MLJ.unwrap.(yhat) .== y) > 0.9
+end
