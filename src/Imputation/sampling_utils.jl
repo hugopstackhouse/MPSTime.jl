@@ -16,30 +16,14 @@ function get_state(
     
 end
 
+# The conditional pdf at a single site is p(x) = phi(x)' * rdm * phi(x) (PRR 7, 043010, Eq. D1), where rdm is the
+# single-site reduced density matrix. Every caller passes the rdm (not the MPS tensor A), so each method must compute
+# the quadratic form phi' * rdm * phi. (A previous Matrix method computed |A' * phi|^2, i.e. phi' * rdm^2 * phi when given the rdm.)
 function get_conditional_probability(
     state::AbstractVector, 
-    A::Matrix, 
+    rdm::AbstractMatrix, 
 )
-    p = BLAS.gemv('C', A, state)
-    return abs(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
-
-end
-
-function get_conditional_probability(
-    state::AbstractVector, 
-    A::Vector, 
-)
-    # p = BLAS.gemv('C', A, state)
-    return abs2(dot(state,A)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
-
-end
-
-function get_conditional_probability(
-    state::SVector, 
-    A::Matrix, 
-)
-    p = state'* A
-    return abs(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+    return abs(dot(state, rdm, state)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
 

@@ -296,9 +296,9 @@ function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector; max_samples=max
     a, b = range
     xs = xs[@. a <= xs <= b]
     kdense = isnothing(bandwidth) ? kde(xs) : kde(xs; bandwidth=bandwidth) 
-    xs_samps = Base.range(-a,b,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
+    xs_samps = Base.range(a,b,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
     
-    f0_oversampled  = sqrt.(pdf(kdense, xs_samps)) 
+    f0_oversampled  = sqrt.(max.(pdf(kdense, xs_samps), 0)) # the KDE can be slightly negative in the tails
     # smoothing = smooth_zero_intervals!(xs_samps, f0_oversampled)
     minx, scale = remove_zeros!(xs_samps, f0_oversampled)
     cVecs = sahand_legendre_coeffs(xs_samps, f0_oversampled, opts.d)

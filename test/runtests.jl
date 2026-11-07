@@ -19,6 +19,10 @@ include("source_test_data.jl")
     include("basis_tests.jl")
 end
 
+@testset "Maths" begin
+    include("maths_tests.jl")
+end
+
 @testset "Save/Load TrainedMPS" begin 
     include("save_load.jl")
 end

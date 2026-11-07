@@ -568,17 +568,18 @@ function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta:
 
     training_states = training_states_meta.timeseries
 
-    @assert opts.d == ITensors.dim(get_siteinds(training_states[1].pstate)[1]) "Dimension of site indices must match feature map dimension"
-    sites = get_siteinds(training_states[1].pstate)
+    # product states are stored as vectors of encoded values, without site indices
+    @assert opts.d == length(training_states[1].pstate[1]) "Dimension of site indices must match feature map dimension"
+    sites = siteinds(opts.d, length(training_states[1].pstate))
 
     # generate the starting MPS with unfirom bond dimension chi_init and random values (with seed if provided)
     num_classes = length(unique([ps.label for ps in training_states]))
     W = generate_startingMPS(opts.chi_init, sites, num_classes, opts; init_rng=opts.init_rng)
 
     if opts.use_legacy_ITensor
-        return fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states, sites), EncodedTimeSeriesSetIT(testing_states, sites), opts, test_run=test_run)
+        return fitMPS_IT(W, EncodedTimeSeriesSetIT(training_states_meta, sites), EncodedTimeSeriesSetIT(testing_states_meta, sites), opts, test_run=test_run)
     else
-        return fitMPS(W, training_states, testing_states, opts, test_run=test_run)
+        return fitMPS(W, training_states_meta, testing_states_meta, opts, test_run=test_run)
     end
 end
 
@@ -601,6 +602,11 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     #     @warn "Not using MKL BLAS, which may lead to worse performance.\nTo fix this, Import MPSTime into Julia first or use the MKL package"
     #     @show blas_name
     # end
+
+    # the caches and loss functions of this trainer only support real-valued MPSs and encodings
+    if opts.encoding.iscomplex || !(opts.dtype <: Real)
+        throw(ArgumentError("The default trainer only supports real-valued encodings and MPSs, but got encoding=$(opts.encoding.name) and dtype=$(opts.dtype). Set 'use_legacy_ITensor=true' in MPSOptions to train with a complex-valued encoding or dtype."))
+    end
 
     # @unpack_Options opts # unpacks the attributes of opts into the local namespace
     tsep = TrainSeparate{opts.train_classes_separately}() # value type to determine training style

@@ -118,7 +118,8 @@ function project_onto_bins(x::Float64, aux_dim::Int, aux_encoder::Function, bins
     encoding = []
     for (i, dx) in enumerate(widths)
 
-        y = norm ? 1. : 1/dx
+        # The aux basis is orthonormal on [a,b] and is stretched onto a bin of width dx, so sqrt(scale/dx) keeps it orthonormal on the bin
+        y = norm ? sqrt(scale/dx) : 1/dx
         lbound = i == 1 ? 1. : 0.5
         rbound = i == length(widths) ? 1. : 0.5
         x_prop = scale*(x - bins[i]) / dx
